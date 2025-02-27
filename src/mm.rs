@@ -137,7 +137,7 @@ pub fn load_user_app(
         "Mapping user stack: {:#x?} -> {:#x?}",
         ustack_start, ustack_end
     );
-    
+
     // FIXME: Add more arguments and environment variables
     let env = vec![
         "SHLVL=1".into(),
@@ -164,7 +164,7 @@ pub fn load_user_app(
         MappingFlags::READ | MappingFlags::WRITE | MappingFlags::USER,
         true,
     )?;
-    
+
     let heap_start = VirtAddr::from_usize(axconfig::plat::USER_HEAP_BASE);
     let heap_size = axconfig::plat::USER_HEAP_SIZE;
     uspace.map_alloc(
@@ -173,7 +173,7 @@ pub fn load_user_app(
         MappingFlags::READ | MappingFlags::WRITE | MappingFlags::USER,
         true,
     )?;
-    
+
     let user_sp = ustack_end - stack_data.len();
 
     uspace.write(user_sp, stack_data.as_slice())?;

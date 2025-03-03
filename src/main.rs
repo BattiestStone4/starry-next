@@ -19,12 +19,26 @@ use axstd::println;
 use axsync::Mutex;
 use memory_addr::VirtAddr;
 
+static VFAT_IMG: &'static [u8] = include_bytes!("../vfat.img"); //used by sys_mount
+
 #[unsafe(no_mangle)]
 fn main() {
     let testcases = option_env!("AX_TESTCASES_LIST")
         .unwrap_or_else(|| "Please specify the testcases list by making user_apps")
         .split(',')
         .filter(|&x| !x.is_empty());
+
+    let _ = axfs::fops::File::open(
+        "/vda2",
+        &axfs::fops::OpenOptions::new()
+            .set_create(true, true)
+            .set_read(true)
+            .set_write(true),
+    )
+        .inspect_err(|err| debug!("Failed to open /dev/vda2: {:?}", err))
+        .and_then(|mut file| file.write(VFAT_IMG))
+        .inspect_err(|err| debug!("Failed to write /dev/vda2: {:?}", err));
+    
     println!("#### OS COMP TEST GROUP START basic-musl ####");
     for testcase in testcases {
         println!("Testing {}: ", testcase.split('/').next_back().unwrap());

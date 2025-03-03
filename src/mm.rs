@@ -1,7 +1,7 @@
 use core::str::from_utf8;
 
 use alloc::{collections::vec_deque::VecDeque, string::String, vec};
-
+use alloc::string::ToString;
 use axerrno::{AxError, AxResult};
 use axhal::{
     paging::MappingFlags,
@@ -27,7 +27,7 @@ fn map_elf(
     args: &mut VecDeque<String>,
     elf_parser: &ELFParser,
     uspace: &mut AddrSpace,
-) -> AxResult<(VirtAddr, [AuxvEntry; 17])> {
+) -> AxResult<(VirtAddr, [AuxvEntry; 16])> {
     let elf = elf_parser.elf();
     if let Some(interp) = elf
         .program_iter()
@@ -136,10 +136,14 @@ pub fn load_user_app(
         "Mapping user stack: {:#x?} -> {:#x?}",
         ustack_start, ustack_end
     );
+    
+    if ["mount", "umount"].contains(&args[0].as_str()) {
+        args.push_back("/vda2".to_string());
+    }
     // FIXME: Add more arguments and environment variables
     let env = vec![
         "SHLVL=1".into(),
-        "PWD=/".into(),
+        "PWD=/musl/basic/".into(),
         "GCC_EXEC_PREFIX=/riscv64-linux-musl-native/bin/../lib/gcc/".into(),
         "COLLECT_GCC=./riscv64-linux-musl-native/bin/riscv64-linux-musl-gcc".into(),
         "COLLECT_LTO_WRAPPER=/riscv64-linux-musl-native/bin/../libexec/gcc/riscv64-linux-musl/11.2.1/lto-wrapper".into(),

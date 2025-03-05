@@ -13,13 +13,10 @@ mod mm;
 mod syscall_imp;
 mod task;
 use alloc::{string::ToString, sync::Arc, vec};
-
 use axhal::arch::UspaceContext;
 use axstd::println;
 use axsync::Mutex;
 use memory_addr::VirtAddr;
-
-static VFAT_IMG: &'static [u8] = include_bytes!("../vfat.img"); //used by sys_mount
 
 #[unsafe(no_mangle)]
 fn main() {
@@ -27,17 +24,6 @@ fn main() {
         .unwrap_or_else(|| "Please specify the testcases list by making user_apps")
         .split(',')
         .filter(|&x| !x.is_empty());
-
-    let _ = axfs::fops::File::open(
-        "/vda2",
-        &axfs::fops::OpenOptions::new()
-            .set_create(true, true)
-            .set_read(true)
-            .set_write(true),
-    )
-        .inspect_err(|err| debug!("Failed to open /dev/vda2: {:?}", err))
-        .and_then(|mut file| file.write(VFAT_IMG))
-        .inspect_err(|err| debug!("Failed to write /dev/vda2: {:?}", err));
     
     println!("#### OS COMP TEST GROUP START basic-musl ####");
     for testcase in testcases {
@@ -53,7 +39,7 @@ fn main() {
         let user_task = task::spawn_user_task(
             Arc::new(Mutex::new(uspace)),
             UspaceContext::new(entry_vaddr.into(), ustack_top, 2333),
-            0,
+            axconfig::plat::USER_HEAP_BASE as _,
         );
         let exit_code = user_task.join();
         info!("User task {} exited with code: {:?}", testcase, exit_code);

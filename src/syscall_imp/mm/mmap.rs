@@ -85,9 +85,19 @@ pub(crate) fn sys_mmap(
             end = memory_addr::align_up_4k(end);
             aligned_length = end - start;
         }
+        
+         info!(
+            "mmap: addr: {:?}, length: {:x?}, prot: {:?}, flags: {:?}, fd: {:?}, offset: {:?}",
+            addr, length, permission_flags, map_flags, fd, offset
+        );
 
         let start_addr = if map_flags.contains(MmapFlags::MAP_FIXED) {
-            VirtAddr::from(addr as usize)
+            if addr.is_null() {
+                return Err(LinuxError::EINVAL);
+            }
+            let dst_addr = VirtAddr::from(addr as usize);
+            aspace.unmap(dst_addr, aligned_length)?;
+            dst_addr
         } else {
             aspace
                 .find_free_area(

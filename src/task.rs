@@ -7,6 +7,7 @@ use core::{
     cell::UnsafeCell,
     sync::atomic::{AtomicU64, Ordering},
 };
+use axfs::api::set_current_dir;
 use spin::Once;
 
 use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
@@ -221,6 +222,9 @@ pub fn spawn_user_task(
     uctx: UspaceContext,
     heap_bottom: u64,
 ) -> AxTaskRef {
+    let cwd = ".";
+    info!("Set CWD to {:?}", cwd);
+    let _ = set_current_dir(cwd);
     let mut task = TaskInner::new(
         || {
             let curr = axtask::current();
@@ -340,18 +344,18 @@ pub fn exec(name: &str) -> AxResult<()> {
     aspace.unmap_user_areas()?;
     axhal::arch::flush_tlb(None);
 
-    let args = vec![program_name];
+    let args = vec!["/musl/basic/".to_string() + &program_name.clone()];
 
     let (entry_point, user_stack_base) = crate::mm::load_user_app(&mut (args.into()), &mut aspace)
         .map_err(|_| {
             error!("Failed to load app {}", name);
             AxError::NotFound
         })?;
-    current_task.set_name(name);
+    current_task.set_name(&program_name);
 
     let task_ext = unsafe { &mut *(current_task.task_ext_ptr() as *mut TaskExt) };
     task_ext.uctx = UspaceContext::new(entry_point.as_usize(), user_stack_base, 0);
-
+    drop(aspace);
     unsafe {
         task_ext.uctx.enter_uspace(
             current_task

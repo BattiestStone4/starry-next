@@ -97,6 +97,11 @@ pub(crate) fn sys_mmap(
             addr, length, permission_flags, map_flags, fd, offset
         );
 
+        info!(
+            "mmap: addr: {:?}, length: {:x?}, prot: {:?}, flags: {:?}, fd: {:?}, offset: {:?}",
+            addr, length, permission_flags, map_flags, fd, offset
+        );
+
         let start_addr = if map_flags.contains(MmapFlags::MAP_FIXED) {
             if addr.is_null() {
                 return Err(LinuxError::EINVAL);

@@ -10,6 +10,7 @@ extern crate axstd;
 mod ctypes;
 
 mod mm;
+mod ptr;
 mod syscall_imp;
 mod task;
 use alloc::{string::ToString, sync::Arc, vec};
@@ -25,7 +26,7 @@ fn main() {
         .unwrap_or_else(|| "Please specify the testcases list by making user_apps")
         .split(',')
         .filter(|&x| !x.is_empty());
-    
+
     println!("#### OS COMP TEST GROUP START basic-musl ####");
     for testcase in testcases {
         println!("Testing {}: ", testcase.split('/').next_back().unwrap());
@@ -37,9 +38,6 @@ fn main() {
         )
         .expect("Failed to create user address space");
         let (entry_vaddr, ustack_top) = mm::load_user_app(&mut (args.into()), &mut uspace).unwrap();
-        let cwd = &testcase.rfind('/').map_or(testcase, |idx| &testcase[..idx]);
-        info!("Set CWD to {:?}", cwd);
-        let _ = set_current_dir(cwd);
         let user_task = task::spawn_user_task(
             Arc::new(Mutex::new(uspace)),
             UspaceContext::new(entry_vaddr.into(), ustack_top, 2333),

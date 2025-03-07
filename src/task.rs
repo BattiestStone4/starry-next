@@ -7,7 +7,6 @@ use core::{
     cell::UnsafeCell,
     sync::atomic::{AtomicU64, Ordering},
 };
-use axfs::api::set_current_dir;
 use spin::Once;
 
 use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
@@ -222,9 +221,6 @@ pub fn spawn_user_task(
     uctx: UspaceContext,
     heap_bottom: u64,
 ) -> AxTaskRef {
-    let cwd = ".";
-    info!("Set CWD to {:?}", cwd);
-    let _ = set_current_dir(cwd);
     let mut task = TaskInner::new(
         || {
             let curr = axtask::current();

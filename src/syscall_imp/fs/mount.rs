@@ -1,4 +1,3 @@
-use alloc::{boxed::Box, string::ToString};
 use alloc::vec::Vec;
 use arceos_posix_api::{FilePath, AT_FDCWD};
 use axerrno::AxError;
@@ -35,9 +34,9 @@ pub(crate) fn sys_mount(
         
        let _ = set_current_dir("/musl/basic/");
         
-       let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir), false)
+       let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir), true)
             .inspect_err(|err| log::error!("mount: dir: {:?}", err))?;
-       let fstype_str = arceos_posix_api::char_ptr_to_str(fstype as *const u8)
+       let fstype_str = arceos_posix_api::char_ptr_to_str(fstype as *const i8)
             .inspect_err(|err| log::error!("mount: fstype: {:?}", err))
             .map_err(|_| AxError::InvalidInput)?;
        
@@ -47,8 +46,6 @@ pub(crate) fn sys_mount(
        }
        
        info!("mount {:?} to {:?} with fs_type={:?}", special_path, dir_path, fstype);
-
-       let dir_path_str: &'static str = Box::leak(Box::new(dir_path.to_string()));
        
        if !dir_path.exists() {
             debug!("mount path not exist");
@@ -78,14 +75,9 @@ pub(crate) fn sys_mount(
 /// * `flags` - mount flags
 pub(crate) fn sys_umount2(special: *const u8, flags: i32) -> i64 {
     syscall_body!(sys_umount2, {
-        let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special), false)
+        let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special), true)
             .inspect_err(|err| log::error!("umount2: special: {:?}", err))?;
-        
-        if special_path.is_dir() {
-            log::debug!("umount2: Special is a directory");
-            return Err(axerrno::LinuxError::EINVAL);
-        }
-        
+
         if flags != 0 {
             debug!("flags unimplemented");
             return Err(axerrno::LinuxError::EPERM);
@@ -156,7 +148,7 @@ pub fn umount_fat_fs(mount_path: &FilePath) -> bool {
     let mut mounted = MOUNTED.lock();
     let mut i = 0;
     while i < mounted.len() {
-        if mounted[i].mnt_dir() == *mount_path {
+        if mounted[i].mnt_dir() == *mount_path  {
             mounted.remove(i);
             info!("umounted {}", mount_path.as_str());
             return true;

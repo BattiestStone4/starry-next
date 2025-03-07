@@ -13,6 +13,7 @@ mod mm;
 mod syscall_imp;
 mod task;
 use alloc::{string::ToString, sync::Arc, vec};
+use axfs::api::set_current_dir;
 use axhal::arch::UspaceContext;
 use axstd::println;
 use axsync::Mutex;
@@ -36,6 +37,9 @@ fn main() {
         )
         .expect("Failed to create user address space");
         let (entry_vaddr, ustack_top) = mm::load_user_app(&mut (args.into()), &mut uspace).unwrap();
+        let cwd = &testcase.rfind('/').map_or(testcase, |idx| &testcase[..idx]);
+        info!("Set CWD to {:?}", cwd);
+        let _ = set_current_dir(cwd);
         let user_task = task::spawn_user_task(
             Arc::new(Mutex::new(uspace)),
             UspaceContext::new(entry_vaddr.into(), ustack_top, 2333),
@@ -43,6 +47,7 @@ fn main() {
         );
         let exit_code = user_task.join();
         info!("User task {} exited with code: {:?}", testcase, exit_code);
+        let _ = set_current_dir("/".into());
     }
     println!("#### OS COMP TEST GROUP END basic-musl ####");
 }

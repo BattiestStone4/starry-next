@@ -144,7 +144,7 @@ pub(crate) fn sys_clone(
 pub(crate) fn sys_wait4(pid: i32, exit_code_ptr: UserPtr<i32>, option: u32) -> isize {
     let option_flag = WaitFlags::from_bits(option).unwrap();
     syscall_body!(sys_wait4, {
-        let exit_code_ptr = exit_code_ptr.get()?;
+        let exit_code_ptr = exit_code_ptr.address().as_mut_ptr() as *mut i32; 
         loop {
             let answer = wait_pid(pid, exit_code_ptr);
             match answer {

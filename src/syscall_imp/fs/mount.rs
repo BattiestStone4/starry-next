@@ -1,8 +1,10 @@
 use alloc::vec::Vec;
+use core::ffi::c_char;
 use arceos_posix_api::{FilePath, AT_FDCWD};
 use axerrno::AxError;
 use axfs::api::set_current_dir;
 use axsync::Mutex;
+use crate::ptr::{PtrWrapper, UserConstPtr};
 use crate::syscall_body;
 
 /// mount() attaches the filesystem specified by source (which is
@@ -18,14 +20,14 @@ use crate::syscall_body;
 /// * `flags` - mount flags
 /// * `data` - a string of comma-separated options understood by this filesystem
 pub(crate) fn sys_mount(
-    special: *const u8,
-    dir: *const u8,
-    fstype: *const u8,
+    special: UserConstPtr<u8>,
+    dir: UserConstPtr<u8>,
+    fstype: UserConstPtr<u8>,
     _flags: u64,
-    _data: *const u8
+    _data: UserConstPtr<u8>
 ) -> i64 {
    syscall_body!(sys_mount, {
-       let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special), false)
+       let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
             .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
        if special_path.is_dir() {
            log::debug!("mount: special is a directory");
@@ -34,9 +36,9 @@ pub(crate) fn sys_mount(
         
        let _ = set_current_dir("/musl/basic/");
         
-       let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir), true)
+       let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir.get()?), true)
             .inspect_err(|err| log::error!("mount: dir: {:?}", err))?;
-       let fstype_str = arceos_posix_api::char_ptr_to_str(fstype as *const i8)
+       let fstype_str = arceos_posix_api::char_ptr_to_str(fstype.get()? as *const c_char)
             .inspect_err(|err| log::error!("mount: fstype: {:?}", err))
             .map_err(|_| AxError::InvalidInput)?;
        
@@ -44,8 +46,6 @@ pub(crate) fn sys_mount(
            log::debug!("mount: fstype is not axfs");
            return Err(axerrno::LinuxError::EINVAL);
        }
-       
-       info!("mount {:?} to {:?} with fs_type={:?}", special_path, dir_path, fstype);
        
        if !dir_path.exists() {
             debug!("mount path not exist");
@@ -73,9 +73,9 @@ pub(crate) fn sys_mount(
 /// # Arguments
 /// * `special` - pathname the file system mounting on
 /// * `flags` - mount flags
-pub(crate) fn sys_umount2(special: *const u8, flags: i32) -> i64 {
+pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> i64 {
     syscall_body!(sys_umount2, {
-        let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special), true)
+        let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), true)
             .inspect_err(|err| log::error!("umount2: special: {:?}", err))?;
 
         if flags != 0 {

@@ -38,6 +38,9 @@ fn main() {
         )
         .expect("Failed to create user address space");
         let (entry_vaddr, ustack_top) = mm::load_user_app(&mut (args.into()), &mut uspace).unwrap();
+        let cwd = &testcase.rfind('/').map_or(testcase, |idx| &testcase[..idx]);
+        info!("Set CWD to {:?}", cwd);
+        let _ = set_current_dir(cwd);
         let user_task = task::spawn_user_task(
             Arc::new(Mutex::new(uspace)),
             UspaceContext::new(entry_vaddr.into(), ustack_top, 2333),

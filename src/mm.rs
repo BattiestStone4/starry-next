@@ -1,7 +1,6 @@
 use core::str::from_utf8;
 
 use alloc::{collections::vec_deque::VecDeque, string::String, vec};
-use alloc::string::ToString;
 use axerrno::{AxError, AxResult};
 use axhal::{
     paging::MappingFlags,
@@ -139,9 +138,6 @@ pub fn load_user_app(
         ustack_start, ustack_end
     );
     
-    if ["mount", "umount"].contains(&args[0].as_str()) {
-        args.push_back("/vda2".to_string());
-    }
     // FIXME: Add more arguments and environment variables
     let env = vec![
         "SHLVL=1".into(),

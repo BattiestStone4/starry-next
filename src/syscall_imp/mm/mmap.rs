@@ -91,8 +91,8 @@ pub(crate) fn sys_mmap(
             end = memory_addr::align_up_4k(end);
             aligned_length = end - start;
         }
-        
-         info!(
+
+        info!(
             "mmap: addr: {:?}, length: {:x?}, prot: {:?}, flags: {:?}, fd: {:?}, offset: {:?}",
             addr, length, permission_flags, map_flags, fd, offset
         );

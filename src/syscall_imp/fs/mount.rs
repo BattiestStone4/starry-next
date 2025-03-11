@@ -1,11 +1,11 @@
+use crate::ptr::{PtrWrapper, UserConstPtr};
+use crate::syscall_body;
 use alloc::vec::Vec;
-use core::ffi::c_char;
-use arceos_posix_api::{FilePath, AT_FDCWD};
+use arceos_posix_api::{AT_FDCWD, FilePath};
 use axerrno::AxError;
 use axfs::api::set_current_dir;
 use axsync::Mutex;
-use crate::ptr::{PtrWrapper, UserConstPtr};
-use crate::syscall_body;
+use core::ffi::c_char;
 
 /// mount() attaches the filesystem specified by source (which is
 /// often a pathname referring to a device, but can also be the
@@ -24,47 +24,46 @@ pub(crate) fn sys_mount(
     dir: UserConstPtr<u8>,
     fstype: UserConstPtr<u8>,
     _flags: u64,
-    _data: UserConstPtr<u8>
+    _data: UserConstPtr<u8>,
 ) -> i64 {
-   syscall_body!(sys_mount, {
-       let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
-            .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
-       if special_path.is_dir() {
-           log::debug!("mount: special is a directory");
-           return Err(axerrno::LinuxError::EINVAL);
-       }
-        
-       let _ = set_current_dir("/musl/basic/");
-        
-       let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir.get()?), true)
+    syscall_body!(sys_mount, {
+        let special_path =
+            arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
+                .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
+        if special_path.is_dir() {
+            log::debug!("mount: special is a directory");
+            return Err(axerrno::LinuxError::EINVAL);
+        }
+
+        let _ = set_current_dir("/musl/basic/");
+
+        let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir.get()?), true)
             .inspect_err(|err| log::error!("mount: dir: {:?}", err))?;
-       let fstype_str = arceos_posix_api::char_ptr_to_str(fstype.get()? as *const c_char)
+        let fstype_str = arceos_posix_api::char_ptr_to_str(fstype.get()? as *const c_char)
             .inspect_err(|err| log::error!("mount: fstype: {:?}", err))
             .map_err(|_| AxError::InvalidInput)?;
-       
-       if fstype_str != "vfat" {
-           log::debug!("mount: fstype is not axfs");
-           return Err(axerrno::LinuxError::EINVAL);
-       }
-       
-       if !dir_path.exists() {
+
+        if fstype_str != "vfat" {
+            log::debug!("mount: fstype is not axfs");
+            return Err(axerrno::LinuxError::EINVAL);
+        }
+
+        if !dir_path.exists() {
             debug!("mount path not exist");
             return Err(axerrno::LinuxError::EPERM);
         }
 
-       
-       if check_mounted(&dir_path) {
-           debug!("mount path includes mounted fs");
-           return Err(axerrno::LinuxError::EPERM);
-       }
-       
-       if !mount_fat_fs(&special_path, &dir_path) {
-           debug!("mount error");
-           return Err(axerrno::LinuxError::EPERM);
-       }
-       Ok(0)
-   })
-    
+        if check_mounted(&dir_path) {
+            debug!("mount path includes mounted fs");
+            return Err(axerrno::LinuxError::EPERM);
+        }
+
+        if !mount_fat_fs(&special_path, &dir_path) {
+            debug!("mount error");
+            return Err(axerrno::LinuxError::EPERM);
+        }
+        Ok(0)
+    })
 }
 
 /// umount() remove the attachment of the (topmost)
@@ -94,10 +93,8 @@ pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> i64 {
             return Err(axerrno::LinuxError::EPERM);
         }
 
-
-        Ok(0) 
+        Ok(0)
     })
-    
 }
 
 pub struct MountedFs {
@@ -132,10 +129,14 @@ static MOUNTED: Mutex<Vec<MountedFs>> = Mutex::new(Vec::new());
 pub fn mount_fat_fs(device_path: &FilePath, mount_path: &FilePath) -> bool {
     if mount_path.exists() {
         MOUNTED.lock().push(MountedFs::new(device_path, mount_path));
-        info!("mounted {} to {}", device_path.as_str(), mount_path.as_str());
+        info!(
+            "mounted {} to {}",
+            device_path.as_str(),
+            mount_path.as_str()
+        );
         return true;
     }
-    
+
     info!(
         "mount failed: {} to {}",
         device_path.as_str(),
@@ -148,7 +149,7 @@ pub fn umount_fat_fs(mount_path: &FilePath) -> bool {
     let mut mounted = MOUNTED.lock();
     let mut i = 0;
     while i < mounted.len() {
-        if mounted[i].mnt_dir() == *mount_path  {
+        if mounted[i].mnt_dir() == *mount_path {
             mounted.remove(i);
             info!("umounted {}", mount_path.as_str());
             return true;
@@ -158,7 +159,6 @@ pub fn umount_fat_fs(mount_path: &FilePath) -> bool {
     info!("umount failed: {}", mount_path.as_str());
     false
 }
-
 
 pub fn check_mounted(path: &FilePath) -> bool {
     let mounted = MOUNTED.lock();

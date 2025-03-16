@@ -49,7 +49,7 @@ fn main() {
         );
         let exit_code = user_task.join();
         info!("User task {} exited with code: {:?}", testcase, exit_code);
-        let _ = set_current_dir("/".into());
+        let _ = set_current_dir("/");
     }
     println!("#### OS COMP TEST GROUP END basic-musl ####");
 }

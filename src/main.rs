@@ -14,7 +14,8 @@ mod ptr;
 mod syscall_imp;
 mod task;
 
-use alloc::{string::ToString, sync::Arc, vec};
+use alloc::collections::VecDeque;
+use alloc::{string::ToString, sync::Arc};
 use axfs::api::set_current_dir;
 use axhal::arch::UspaceContext;
 use axstd::println;
@@ -32,12 +33,13 @@ fn main() {
     for testcase in testcases {
         println!("Testing {}: ", testcase.split('/').next_back().unwrap());
 
-        let args = vec![testcase.to_string()];
+        let args: VecDeque<_> = testcase.split(" ").map(|x| x.to_string()).collect();
         let mut uspace = axmm::new_user_aspace(
             VirtAddr::from_usize(axconfig::plat::USER_SPACE_BASE),
             axconfig::plat::USER_SPACE_SIZE,
         )
         .expect("Failed to create user address space");
+        info!("{:?}", args);
         let (entry_vaddr, ustack_top) = mm::load_user_app(&mut (args.into()), &mut uspace).unwrap();
         let cwd = &testcase.rfind('/').map_or(testcase, |idx| &testcase[..idx]);
         info!("Set CWD to {:?}", cwd);

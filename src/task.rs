@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use alloc::{string::ToString, sync::Arc, vec, vec::Vec};
 use arceos_posix_api::FD_TABLE;
 use axerrno::{AxError, AxResult};
@@ -10,6 +11,7 @@ use core::{
 use spin::Once;
 
 use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
+use crate::syscall_imp::signal::SignalModule;
 use axhal::{
     arch::{TrapFrame, UspaceContext},
     time::{NANOS_PER_MICROS, NANOS_PER_SEC, monotonic_time_nanos},
@@ -45,6 +47,8 @@ pub struct TaskExt {
     pub heap_bottom: AtomicU64,
     /// The user heap top
     pub heap_top: AtomicU64,
+    /// The signal module
+    pub signal_modules: Mutex<BTreeMap<u64, SignalModule>>,
 }
 
 impl TaskExt {
@@ -65,6 +69,7 @@ impl TaskExt {
             time: TimeStat::new().into(),
             heap_bottom: AtomicU64::new(heap_bottom),
             heap_top: AtomicU64::new(heap_bottom),
+            signal_modules: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -245,6 +250,10 @@ pub fn spawn_user_task(
         heap_bottom,
     ));
     task.task_ext().ns_init_new();
+    task.task_ext()
+        .signal_modules
+        .lock()
+        .insert(task.id().as_u64(), SignalModule::init_signal(None));
     axtask::spawn_task(task)
 }
 

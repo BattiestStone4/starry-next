@@ -1415,6 +1415,7 @@ dependencies = [
  "axsync",
  "axtask",
  "bitflags 2.9.0",
+ "cfg-if",
  "crate_interface",
  "kernel-elf-parser",
  "linkme",

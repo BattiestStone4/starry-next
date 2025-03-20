@@ -136,11 +136,6 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         Sysno::mprotect => sys_mprotect(tf.arg0().into(), tf.arg1() as _, tf.arg2() as _),
         Sysno::times => sys_times(tf.arg0().into()),
         Sysno::brk => sys_brk(tf.arg0() as _),
-        ) as _,
-        Sysno::munmap => sys_munmap(tf.arg0().into(), tf.arg1() as _) as _,
-        Sysno::mprotect => sys_mprotect(tf.arg0().into(), tf.arg1() as _, tf.arg2() as _) as _,
-        Sysno::times => sys_times(tf.arg0().into()) as _,
-        Sysno::brk => sys_brk(tf.arg0() as _) as _,
         Sysno::mount => sys_mount(
             tf.arg0().into(),
             tf.arg1().into(),
@@ -167,7 +162,6 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg2().into(),
             tf.arg3() as _,
         ),
-        ) as _,
         Sysno::rt_sigtimedwait => sys_rt_sigtimedwait(),
         _ => {
             warn!("Unimplemented syscall: {}", syscall_num);

@@ -1,4 +1,5 @@
 use alloc::{
+    collections::BTreeMap,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
@@ -14,6 +15,7 @@ use core::{
 use spin::Once;
 
 use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
+use crate::syscall_imp::SignalModule;
 use axhal::{
     arch::{TrapFrame, UspaceContext},
     time::{NANOS_PER_MICROS, NANOS_PER_SEC, monotonic_time_nanos},

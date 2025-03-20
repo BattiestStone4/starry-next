@@ -1,8 +1,7 @@
 use crate::ptr::{PtrWrapper, UserConstPtr};
-use crate::syscall_body;
 use alloc::vec::Vec;
 use arceos_posix_api::{AT_FDCWD, FilePath};
-use axerrno::AxError;
+use axerrno::{AxError, LinuxResult};
 use axfs::api::set_current_dir;
 use axsync::Mutex;
 use core::ffi::c_char;
@@ -25,8 +24,7 @@ pub(crate) fn sys_mount(
     fstype: UserConstPtr<u8>,
     _flags: u64,
     _data: UserConstPtr<u8>,
-) -> i64 {
-    syscall_body!(sys_mount, {
+) -> LinuxResult<isize> {
         let special_path =
             arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
                 .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
@@ -63,7 +61,6 @@ pub(crate) fn sys_mount(
             return Err(axerrno::LinuxError::EPERM);
         }
         Ok(0)
-    })
 }
 
 /// umount() remove the attachment of the (topmost)
@@ -72,8 +69,7 @@ pub(crate) fn sys_mount(
 /// # Arguments
 /// * `special` - pathname the file system mounting on
 /// * `flags` - mount flags
-pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> i64 {
-    syscall_body!(sys_umount2, {
+pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> LinuxResult<isize> {
         let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), true)
             .inspect_err(|err| log::error!("umount2: special: {:?}", err))?;
 
@@ -94,7 +90,6 @@ pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> i64 {
         }
 
         Ok(0)
-    })
 }
 
 pub struct MountedFs {

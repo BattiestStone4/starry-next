@@ -25,42 +25,41 @@ pub(crate) fn sys_mount(
     _flags: u64,
     _data: UserConstPtr<u8>,
 ) -> LinuxResult<isize> {
-        let special_path =
-            arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
-                .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
-        if special_path.is_dir() {
-            log::debug!("mount: special is a directory");
-            return Err(axerrno::LinuxError::EINVAL);
-        }
+    let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), false)
+        .inspect_err(|err| log::error!("mount: special: {:?}", err))?;
+    if special_path.is_dir() {
+        log::debug!("mount: special is a directory");
+        return Err(axerrno::LinuxError::EINVAL);
+    }
 
-        let _ = set_current_dir("/musl/basic/");
+    let _ = set_current_dir("/musl/basic/");
 
-        let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir.get()?), true)
-            .inspect_err(|err| log::error!("mount: dir: {:?}", err))?;
-        let fstype_str = arceos_posix_api::char_ptr_to_str(fstype.get()? as *const c_char)
-            .inspect_err(|err| log::error!("mount: fstype: {:?}", err))
-            .map_err(|_| AxError::InvalidInput)?;
+    let dir_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(dir.get()?), true)
+        .inspect_err(|err| log::error!("mount: dir: {:?}", err))?;
+    let fstype_str = arceos_posix_api::char_ptr_to_str(fstype.get()? as *const c_char)
+        .inspect_err(|err| log::error!("mount: fstype: {:?}", err))
+        .map_err(|_| AxError::InvalidInput)?;
 
-        if fstype_str != "vfat" {
-            log::debug!("mount: fstype is not axfs");
-            return Err(axerrno::LinuxError::EINVAL);
-        }
+    if fstype_str != "vfat" {
+        log::debug!("mount: fstype is not axfs");
+        return Err(axerrno::LinuxError::EINVAL);
+    }
 
-        if !dir_path.exists() {
-            debug!("mount path not exist");
-            return Err(axerrno::LinuxError::EPERM);
-        }
+    if !dir_path.exists() {
+        debug!("mount path not exist");
+        return Err(axerrno::LinuxError::EPERM);
+    }
 
-        if check_mounted(&dir_path) {
-            debug!("mount path includes mounted fs");
-            return Err(axerrno::LinuxError::EPERM);
-        }
+    if check_mounted(&dir_path) {
+        debug!("mount path includes mounted fs");
+        return Err(axerrno::LinuxError::EPERM);
+    }
 
-        if !mount_fat_fs(&special_path, &dir_path) {
-            debug!("mount error");
-            return Err(axerrno::LinuxError::EPERM);
-        }
-        Ok(0)
+    if !mount_fat_fs(&special_path, &dir_path) {
+        debug!("mount error");
+        return Err(axerrno::LinuxError::EPERM);
+    }
+    Ok(0)
 }
 
 /// umount() remove the attachment of the (topmost)
@@ -70,26 +69,26 @@ pub(crate) fn sys_mount(
 /// * `special` - pathname the file system mounting on
 /// * `flags` - mount flags
 pub(crate) fn sys_umount2(special: UserConstPtr<u8>, flags: i32) -> LinuxResult<isize> {
-        let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), true)
-            .inspect_err(|err| log::error!("umount2: special: {:?}", err))?;
+    let special_path = arceos_posix_api::handle_file_path(AT_FDCWD, Some(special.get()?), true)
+        .inspect_err(|err| log::error!("umount2: special: {:?}", err))?;
 
-        if flags != 0 {
-            debug!("flags unimplemented");
-            return Err(axerrno::LinuxError::EPERM);
-        }
+    if flags != 0 {
+        debug!("flags unimplemented");
+        return Err(axerrno::LinuxError::EPERM);
+    }
 
-        // 检查挂载点路径是否存在
-        if !special_path.exists() {
-            debug!("mount path not exist");
-            return Err(axerrno::LinuxError::EPERM);
-        }
-        // 从挂载点中删除
-        if !umount_fat_fs(&special_path) {
-            debug!("umount error");
-            return Err(axerrno::LinuxError::EPERM);
-        }
+    // 检查挂载点路径是否存在
+    if !special_path.exists() {
+        debug!("mount path not exist");
+        return Err(axerrno::LinuxError::EPERM);
+    }
+    // 从挂载点中删除
+    if !umount_fat_fs(&special_path) {
+        debug!("umount error");
+        return Err(axerrno::LinuxError::EPERM);
+    }
 
-        Ok(0)
+    Ok(0)
 }
 
 pub struct MountedFs {

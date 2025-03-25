@@ -15,7 +15,6 @@ use core::{
 use memory_addr::VirtAddrRange;
 use spin::Once;
 
-use crate::ctypes::{CloneFlags, TimeStat, WaitStatus};
 use crate::syscall_imp::SignalModule;
 use crate::{
     copy_from_kernel,
@@ -29,6 +28,8 @@ use axmm::{AddrSpace, kernel_aspace};
 use axns::{AxNamespace, AxNamespaceIf};
 use axsync::Mutex;
 use axtask::{AxTaskRef, TaskExtRef, TaskInner, current};
+
+pub static TID2TASK: Mutex<BTreeMap<u64, AxTaskRef>> = Mutex::new(BTreeMap::new());
 
 /// Task extended data for the monolithic kernel.
 pub struct TaskExt {
@@ -134,7 +135,13 @@ impl TaskExt {
         );
         new_task_ext.ns_init_new();
         new_task.init_task_ext(new_task_ext);
+        new_task
+            .task_ext()
+            .signal_modules
+            .lock()
+            .insert(new_task.id().as_u64(), SignalModule::init_signal(None));
         let new_task_ref = axtask::spawn_task(new_task);
+        TID2TASK.lock().insert(return_id, Arc::clone(&new_task_ref));
         current_task.task_ext().children.lock().push(new_task_ref);
         Ok(return_id)
     }
@@ -264,10 +271,11 @@ pub fn spawn_user_task(
         "userboot".into(),
         axconfig::plat::KERNEL_STACK_SIZE,
     );
+    let new_task_id = task.id().as_u64();
     task.ctx_mut()
         .set_page_table_root(aspace.lock().page_table_root());
     task.init_task_ext(TaskExt::new(
-        task.id().as_u64() as usize,
+        new_task_id as usize,
         uctx,
         aspace,
         heap_bottom,
@@ -277,7 +285,11 @@ pub fn spawn_user_task(
         .signal_modules
         .lock()
         .insert(task.id().as_u64(), SignalModule::init_signal(None));
-    axtask::spawn_task(task)
+    let new_task_ref = axtask::spawn_task(task);
+    TID2TASK
+        .lock()
+        .insert(new_task_id, Arc::clone(&new_task_ref));
+    new_task_ref
 }
 
 #[allow(unused)]

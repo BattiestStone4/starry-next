@@ -208,3 +208,13 @@ pub fn sys_execve(
 
     unreachable!("execve should never return");
 }
+
+pub fn sys_gettid() -> LinuxResult<isize> {
+    warn!("gettid not implemented");
+    Ok(0)
+}
+
+pub fn sys_prlimit64() -> LinuxResult<isize> {
+    warn!("prlimit64 not implemented");
+    Ok(0)
+}

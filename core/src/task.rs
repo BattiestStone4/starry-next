@@ -1,3 +1,9 @@
+use core::{
+    alloc::Layout,
+    cell::UnsafeCell,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
 use alloc::{
     collections::BTreeMap,
     string::{String, ToString},
@@ -7,19 +13,6 @@ use alloc::{
 use arceos_posix_api::FD_TABLE;
 use axerrno::{AxError, AxResult};
 use axfs::{CURRENT_DIR, CURRENT_DIR_PATH};
-use core::{
-    alloc::Layout,
-    cell::UnsafeCell,
-    sync::atomic::{AtomicU64, Ordering},
-};
-use memory_addr::VirtAddrRange;
-use spin::Once;
-
-use crate::syscall_imp::SignalModule;
-use crate::{
-    copy_from_kernel,
-    ctypes::{CloneFlags, TimeStat, WaitStatus},
-};
 use axhal::{
     arch::{TrapFrame, UspaceContext},
     time::{NANOS_PER_MICROS, NANOS_PER_SEC, monotonic_time_nanos},
@@ -28,6 +21,13 @@ use axmm::{AddrSpace, kernel_aspace};
 use axns::{AxNamespace, AxNamespaceIf};
 use axsync::Mutex;
 use axtask::{AxTaskRef, TaskExtRef, TaskInner, current};
+use memory_addr::VirtAddrRange;
+use spin::Once;
+
+use crate::{
+    ctypes::{CloneFlags, TimeStat, WaitStatus},
+    mm::copy_from_kernel,
+};
 
 pub static TID2TASK: Mutex<BTreeMap<u64, AxTaskRef>> = Mutex::new(BTreeMap::new());
 
@@ -146,26 +146,25 @@ impl TaskExt {
         Ok(return_id)
     }
 
-    pub(crate) fn clear_child_tid(&self) -> u64 {
+    pub fn clear_child_tid(&self) -> u64 {
         self.clear_child_tid
             .load(core::sync::atomic::Ordering::Relaxed)
     }
 
-    pub(crate) fn set_clear_child_tid(&self, clear_child_tid: u64) {
+    pub fn set_clear_child_tid(&self, clear_child_tid: u64) {
         self.clear_child_tid
             .store(clear_child_tid, core::sync::atomic::Ordering::Relaxed);
     }
 
-    pub(crate) fn get_parent(&self) -> u64 {
+    pub fn get_parent(&self) -> u64 {
         self.parent_id.load(Ordering::Acquire)
     }
 
-    #[allow(unused)]
-    pub(crate) fn set_parent(&self, parent_id: u64) {
+    pub fn set_parent(&self, parent_id: u64) {
         self.parent_id.store(parent_id, Ordering::Release);
     }
 
-    pub(crate) fn ns_init_new(&self) {
+    fn ns_init_new(&self) {
         FD_TABLE
             .deref_from(&self.ns)
             .init_new(FD_TABLE.copy_inner());
@@ -196,20 +195,19 @@ impl TaskExt {
         unsafe { (*time).output() }
     }
 
-    pub(crate) fn get_heap_bottom(&self) -> u64 {
+    pub fn get_heap_bottom(&self) -> u64 {
         self.heap_bottom.load(Ordering::Acquire)
     }
 
-    #[allow(unused)]
-    pub(crate) fn set_heap_bottom(&self, bottom: u64) {
+    pub fn set_heap_bottom(&self, bottom: u64) {
         self.heap_bottom.store(bottom, Ordering::Release)
     }
 
-    pub(crate) fn get_heap_top(&self) -> u64 {
+    pub fn get_heap_top(&self) -> u64 {
         self.heap_top.load(Ordering::Acquire)
     }
 
-    pub(crate) fn set_heap_top(&self, top: u64) {
+    pub fn set_heap_top(&self, top: u64) {
         self.heap_top.store(top, Ordering::Release)
     }
 }
@@ -307,7 +305,10 @@ pub fn read_trapframe_from_kstack(kstack_top: usize) -> TrapFrame {
     unsafe { *trap_frame_ptr }
 }
 
-pub fn wait_pid(pid: i32, exit_code_ptr: *mut i32) -> Result<u64, WaitStatus> {
+/// # Safety
+///
+/// The caller must ensure that the pointer is valid and properly aligned if it's not null.
+pub unsafe fn wait_pid(pid: i32, exit_code_ptr: *mut i32) -> Result<u64, WaitStatus> {
     let curr_task = current();
     let mut exit_task_id: usize = 0;
     let mut answer_id: u64 = 0;

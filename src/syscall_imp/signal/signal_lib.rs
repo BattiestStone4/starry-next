@@ -182,7 +182,6 @@ pub fn sys_rt_sigaction(
     oldact: UserPtr<c_void>,
     _sigsetsize: usize,
 ) -> LinuxResult<isize> {
-    let signum = signum;
     let action = act.address().as_ptr_of();
     let old_action = oldact.address().as_mut_ptr_of();
     info!(

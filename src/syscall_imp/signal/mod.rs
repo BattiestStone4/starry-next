@@ -17,9 +17,9 @@ pub mod info;
 pub mod signal_no;
 pub mod ucontext;
 
-pub mod signal;
+pub mod signal_lib;
 
-pub(crate) use self::signal::*;
+pub(crate) use self::signal_lib::*;
 
 /// 处理所有信号的结构
 #[derive(Clone)]

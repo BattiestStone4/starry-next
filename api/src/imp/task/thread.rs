@@ -220,3 +220,8 @@ pub fn sys_prlimit64() -> LinuxResult<isize> {
     warn!("prlimit64 not implemented");
     Ok(0)
 }
+
+pub fn sys_fork() -> LinuxResult<isize> {
+    warn!("turn fork to clone");
+    sys_clone(1, 0, 0, 0, 0)
+}

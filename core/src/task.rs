@@ -27,6 +27,7 @@ use spin::Once;
 use crate::{
     ctypes::{CloneFlags, TimeStat, WaitStatus},
     mm::copy_from_kernel,
+    signal::SignalModule,
 };
 
 pub static TID2TASK: Mutex<BTreeMap<u64, AxTaskRef>> = Mutex::new(BTreeMap::new());

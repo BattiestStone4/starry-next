@@ -7,4 +7,5 @@ extern crate alloc;
 pub mod ctypes;
 pub mod entry;
 pub mod mm;
+pub mod signal;
 pub mod task;

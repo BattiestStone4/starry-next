@@ -1,6 +1,6 @@
 //! To define the signal action and its flags
 
-use crate::syscall_imp::signal_no::SignalNo::{self, *};
+use crate::signal::signal_no::SignalNo::{self, *};
 
 /// 特殊取值，代表默认处理函数
 pub const _SIG_DFL: usize = 0;

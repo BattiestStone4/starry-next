@@ -3,6 +3,7 @@ use axhal::{
     arch::TrapFrame,
     trap::{SYSCALL, register_trap_handler},
 };
+use linux_raw_sys::general::SIGSYS;
 use starry_api::*;
 use starry_core::task::{time_stat_from_kernel_to_user, time_stat_from_user_to_kernel};
 use syscalls::Sysno;
@@ -42,6 +43,8 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         Sysno::gettimeofday => sys_get_time_of_day(tf.arg0().into()),
         Sysno::getcwd => sys_getcwd(tf.arg0().into(), tf.arg1() as _),
         Sysno::dup => sys_dup(tf.arg0() as _),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::dup2 => sys_dup2(tf.arg0() as _, tf.arg1() as _),
         Sysno::dup3 => sys_dup2(tf.arg0() as _, tf.arg1() as _),
         Sysno::fcntl => sys_fcntl(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
         Sysno::lseek => sys_lseek(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
@@ -55,7 +58,9 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         #[cfg(target_arch = "x86_64")]
         Sysno::fork => sys_fork(),
         Sysno::wait4 => sys_waitpid(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
-        Sysno::pipe2 => sys_pipe2(tf.arg0().into()),
+        Sysno::pipe2 => sys_pipe(tf.arg0().into()),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::pipe => sys_pipe(tf.arg0().into()),
         Sysno::close => sys_close(tf.arg0() as _),
         Sysno::chdir => sys_chdir(tf.arg0().into()),
         Sysno::mkdirat => sys_mkdirat(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
@@ -76,7 +81,11 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg3().into(),
             tf.arg4() as _,
         ),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::link => sys_link(tf.arg0().into(), tf.arg1().into()),
         Sysno::unlinkat => sys_unlinkat(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::unlink => sys_unlink(tf.arg0().into()),
         Sysno::uname => sys_uname(tf.arg0().into()),
         #[cfg(target_arch = "x86_64")]
         Sysno::stat => sys_stat(tf.arg0().into(), tf.arg1().into()),
@@ -120,6 +129,9 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         Sysno::set_tid_address => sys_set_tid_address(tf.arg0().into()),
         Sysno::clock_gettime => sys_clock_gettime(tf.arg0() as _, tf.arg1().into()),
         Sysno::getuid => sys_getuid(),
+        Sysno::geteuid => sys_geteuid(),
+        Sysno::getgid => sys_getgid(),
+        Sysno::getegid => sys_getegid(),
         Sysno::rt_sigprocmask => sys_rt_sigprocmask(
             tf.arg0() as _,
             tf.arg1().into(),
@@ -132,6 +144,13 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg2().into(),
             tf.arg3() as _,
         ),
+        Sysno::rt_sigtimedwait => {
+            sys_rt_sigtimedwait(tf.arg0().into(), tf.arg1().into(), tf.arg2().into())
+        }
+        Sysno::futex => {
+            warn!("preventing pthread from blocking testing");
+            do_exit(SIGSYS as _, true);
+        }
         sysno => {
             warn!("Unimplemented syscall: {}", sysno);
             Err(LinuxError::ENOSYS)

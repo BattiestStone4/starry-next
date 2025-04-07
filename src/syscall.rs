@@ -77,6 +77,8 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         ),
         Sysno::unlinkat => sys_unlinkat(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::uname => sys_uname(tf.arg0().into()),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::stat => sys_stat(tf.arg0().into(), tf.arg1().into()),
         Sysno::fstat => sys_fstat(tf.arg0() as _, tf.arg1().into()),
         Sysno::mount => sys_mount(
             tf.arg0().into(),
@@ -107,6 +109,7 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg3() as _,
             tf.arg4().into(),
         ),
+        Sysno::statfs => sys_statfs(tf.arg0().into(), tf.arg1().into()),
         Sysno::munmap => sys_munmap(tf.arg0(), tf.arg1() as _),
         Sysno::mprotect => sys_mprotect(tf.arg0(), tf.arg1() as _, tf.arg2() as _),
         Sysno::times => sys_times(tf.arg0().into()),

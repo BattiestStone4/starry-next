@@ -9,13 +9,14 @@ use syscalls::Sysno;
 
 #[register_trap_handler(SYSCALL)]
 fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
-    info!("Syscall {:?}", Sysno::from(syscall_num as u32));
+    let sysno = Sysno::from(syscall_num as u32);
+    info!("Syscall {}", sysno);
     time_stat_from_user_to_kernel();
-    let result: LinuxResult<isize> = match Sysno::from(syscall_num as u32) {
+    let result: LinuxResult<isize> = match sysno {
         Sysno::read => sys_read(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::write => sys_write(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::mmap => sys_mmap(
-            tf.arg0().into(),
+            tf.arg0(),
             tf.arg1() as _,
             tf.arg2() as _,
             tf.arg3() as _,
@@ -34,7 +35,7 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
         Sysno::gettimeofday => sys_get_time_of_day(tf.arg0().into()),
         Sysno::getcwd => sys_getcwd(tf.arg0().into(), tf.arg1() as _),
         Sysno::dup => sys_dup(tf.arg0() as _),
-        Sysno::dup3 => sys_dup3(tf.arg0() as _, tf.arg1() as _),
+        Sysno::dup3 => sys_dup2(tf.arg0() as _, tf.arg1() as _),
         Sysno::fcntl => sys_fcntl(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
         Sysno::clone => sys_clone(
             tf.arg0() as _,
@@ -44,8 +45,7 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg4() as _,
         ),
         #[cfg(target_arch = "x86_64")]
-        // FIXME: SIGCHLD
-        Sysno::fork => sys_clone(17, 0, 0, 0, 0),
+        Sysno::fork => sys_fork(),
         Sysno::wait4 => sys_waitpid(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::pipe2 => sys_pipe2(tf.arg0().into()),
         Sysno::close => sys_close(tf.arg0() as _),
@@ -100,8 +100,8 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg3() as _,
             tf.arg4().into(),
         ),
-        Sysno::munmap => sys_munmap(tf.arg0().into(), tf.arg1() as _),
-        Sysno::mprotect => sys_mprotect(tf.arg0().into(), tf.arg1() as _, tf.arg2() as _),
+        Sysno::munmap => sys_munmap(tf.arg0(), tf.arg1() as _),
+        Sysno::mprotect => sys_mprotect(tf.arg0(), tf.arg1() as _, tf.arg2() as _),
         Sysno::times => sys_times(tf.arg0().into()),
         Sysno::brk => sys_brk(tf.arg0() as _),
         #[cfg(target_arch = "x86_64")]
@@ -121,8 +121,8 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
             tf.arg2().into(),
             tf.arg3() as _,
         ),
-        _ => {
-            warn!("Unimplemented syscall: {}", syscall_num);
+        sysno => {
+            warn!("Unimplemented syscall: {}", sysno);
             Err(LinuxError::ENOSYS)
         }
     };

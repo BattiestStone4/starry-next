@@ -4,6 +4,7 @@ use axhal::{
     trap::{PAGE_FAULT, register_trap_handler},
 };
 use axtask::{TaskExtRef, current};
+use linux_raw_sys::general::SIGSEGV;
 use starry_api::do_exit;
 use starry_core::mm::is_accessing_user_memory;
 
@@ -31,8 +32,7 @@ fn handle_page_fault(vaddr: VirtAddr, access_flags: MappingFlags, is_user: bool)
             curr.task_ext().thread,
             vaddr
         );
-        // FIXME: change to SIGSEGV
-        do_exit(11, true);
+        do_exit(SIGSEGV as _, true);
     }
     true
 }

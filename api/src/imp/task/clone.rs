@@ -1,5 +1,4 @@
 use alloc::sync::Arc;
-use arceos_posix_api::FD_TABLE;
 use axerrno::{LinuxError, LinuxResult};
 use axfs::{CURRENT_DIR, CURRENT_DIR_PATH};
 use axhal::arch::{TrapFrame, UspaceContext};
@@ -7,56 +6,80 @@ use axprocess::{Pid, ProcessBuilder, ThreadBuilder};
 use axsync::Mutex;
 use axtask::{TaskExtRef, current};
 use bitflags::bitflags;
+use linux_raw_sys::general::{
+    CLONE_CHILD_CLEARTID, CLONE_CHILD_SETTID, CLONE_FILES, CLONE_FS, CLONE_IO, CLONE_NEWCGROUP,
+    CLONE_NEWIPC, CLONE_NEWNET, CLONE_NEWNS, CLONE_NEWPID, CLONE_NEWUSER, CLONE_NEWUTS,
+    CLONE_PARENT, CLONE_PARENT_SETTID, CLONE_PTRACE, CLONE_SETTLS, CLONE_SIGHAND, CLONE_SYSVSEM,
+    CLONE_THREAD, CLONE_UNTRACED, CLONE_VFORK, CLONE_VM, SIGCHLD,
+};
 use macro_rules_attribute::apply;
 use starry_core::{
     mm::copy_from_kernel,
     task::{ProcessData, TaskExt, ThreadData, add_thread_to_table, new_user_task},
 };
 
-use crate::syscall_instrument;
+use crate::{fd::FD_TABLE, syscall_instrument};
 
 bitflags! {
-    /// 用于 sys_clone 的选项
+    /// Options for use with [`sys_clone`].
     #[derive(Debug, Clone, Copy, Default)]
     struct CloneFlags: u32 {
-        /// .
-        const CLONE_NEWTIME = 1 << 7;
-        /// 共享地址空间
-        const CLONE_VM = 1 << 8;
-        /// 共享文件系统新信息
-        const CLONE_FS = 1 << 9;
-        /// 共享文件描述符(fd)表
-        const CLONE_FILES = 1 << 10;
-        /// 共享信号处理函数
-        const CLONE_SIGHAND = 1 << 11;
-        /// 创建指向子任务的fd，用于 sys_pidfd_open
-        const CLONE_PIDFD = 1 << 12;
-        /// 用于 sys_ptrace
-        const CLONE_PTRACE = 1 << 13;
-        /// 指定父任务创建后立即阻塞，直到子任务退出才继续
-        const CLONE_VFORK = 1 << 14;
-        /// 指定子任务的 ppid 为当前任务的 ppid，相当于创建“兄弟”而不是“子女”
-        const CLONE_PARENT = 1 << 15;
-        /// 作为一个“线程”被创建。具体来说，它同 CLONE_PARENT 一样设置 ppid，且不可被 wait
-        const CLONE_THREAD = 1 << 16;
-        /// 子任务使用新的命名空间。目前还未用到
-        const CLONE_NEWNS = 1 << 17;
-        /// 子任务共享同一组信号量。用于 sys_semop
-        const CLONE_SYSVSEM = 1 << 18;
-        /// 要求设置 tls
-        const CLONE_SETTLS = 1 << 19;
-        /// 要求在父任务的一个地址写入子任务的 tid
-        const CLONE_PARENT_SETTID = 1 << 20;
-        /// 要求将子任务的一个地址清零。这个地址会被记录下来，当子任务退出时会触发此处的 futex
-        const CLONE_CHILD_CLEARTID = 1 << 21;
-        /// 历史遗留的 flag，现在按 linux 要求应忽略
-        const CLONE_DETACHED = 1 << 22;
-        /// 与 sys_ptrace 相关，目前未用到
-        const CLONE_UNTRACED = 1 << 23;
-        /// 要求在子任务的一个地址写入子任务的 tid
-        const CLONE_CHILD_SETTID = 1 << 24;
-        /// New pid namespace.
-        const CLONE_NEWPID = 1 << 29;
+        /// The calling process and the child process run in the same
+        /// memory space.
+        const VM = CLONE_VM;
+        /// The caller and the child process share the same  filesystem
+        /// information.
+        const FS = CLONE_FS;
+        /// The calling process and the child process share the same file
+        /// descriptor table.
+        const FILES = CLONE_FILES;
+        /// The calling process and the child process share the same table
+        /// of signal handlers.
+        const SIGHAND = CLONE_SIGHAND;
+        /// If the calling process is being traced, then trace the child
+        /// also.
+        const PTRACE = CLONE_PTRACE;
+        /// The execution of the calling process is suspended until the
+        /// child releases its virtual memory resources via a call to
+        /// execve(2) or _exit(2) (as with vfork(2)).
+        const VFORK = CLONE_VFORK;
+        /// The parent of the new child  (as returned by getppid(2))
+        /// will be the same as that of the calling process.
+        const PARENT = CLONE_PARENT;
+        /// The child is placed in the same thread group as the calling
+        /// process.
+        const THREAD = CLONE_THREAD;
+        /// The cloned child is started in a new mount namespace.
+        const NEWNS = CLONE_NEWNS;
+        /// The child and the calling process share a single list of System
+        /// V semaphore adjustment values
+        const SYSVSEM = CLONE_SYSVSEM;
+        /// The TLS (Thread Local Storage) descriptor is set to tls.
+        const SETTLS = CLONE_SETTLS;
+        /// Store the child thread ID in the parent's memory.
+        const PARENT_SETTID = CLONE_PARENT_SETTID;
+        /// Clear (zero) the child thread ID in child memory when the child
+        /// exits, and do a wakeup on the futex at that address.
+        const CHILD_CLEARTID = CLONE_CHILD_CLEARTID;
+        /// A tracing process cannot force `CLONE_PTRACE` on this child
+        /// process.
+        const UNTRACED = CLONE_UNTRACED;
+        /// Store the child thread ID in the child's memory.
+        const CHILD_SETTID = CLONE_CHILD_SETTID;
+        /// Create the process in a new cgroup namespace.
+        const NEWCGROUP = CLONE_NEWCGROUP;
+        /// Create the process in a new UTS namespace.
+        const NEWUTS = CLONE_NEWUTS;
+        /// Create the process in a new IPC namespace.
+        const NEWIPC = CLONE_NEWIPC;
+        /// Create the process in a new user namespace.
+        const NEWUSER = CLONE_NEWUSER;
+        /// Create the process in a new PID namespace.
+        const NEWPID = CLONE_NEWPID;
+        /// Create the process in a new network namespace.
+        const NEWNET = CLONE_NEWNET;
+        /// The new process shares an I/O context with the calling process.
+        const IO = CLONE_IO;
     }
 }
 
@@ -80,7 +103,7 @@ pub fn sys_clone(
     let curr = current();
     let mut new_task = new_user_task(curr.name());
 
-    // TODO: check CLONE_SETTLS
+    // TODO: check SETTLS
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     new_task
         .ctx_mut()
@@ -100,8 +123,8 @@ pub fn sys_clone(
     new_uctx.set_retval(0);
 
     let tid = new_task.id().as_u64() as Pid;
-    if flags.contains(CloneFlags::CLONE_THREAD) {
-        if !flags.contains(CloneFlags::CLONE_VM | CloneFlags::CLONE_SIGHAND) {
+    if flags.contains(CloneFlags::THREAD) {
+        if !flags.contains(CloneFlags::VM | CloneFlags::SIGHAND) {
             return Err(LinuxError::EINVAL);
         }
 
@@ -114,7 +137,7 @@ pub fn sys_clone(
         new_task.init_task_ext(TaskExt::new(new_uctx, thread));
     } else {
         // create a new process
-        let parent = if flags.contains(CloneFlags::CLONE_PARENT) {
+        let parent = if flags.contains(CloneFlags::PARENT) {
             curr.task_ext()
                 .thread
                 .process()
@@ -124,7 +147,7 @@ pub fn sys_clone(
             curr.task_ext().thread.process().clone()
         };
 
-        let aspace = if flags.contains(CloneFlags::CLONE_VM) {
+        let aspace = if flags.contains(CloneFlags::VM) {
             curr.task_ext().process_data().aspace.clone()
         } else {
             let mut aspace = curr.task_ext().process_data().aspace.lock();
@@ -141,7 +164,7 @@ pub fn sys_clone(
             aspace,
         );
 
-        if flags.contains(CloneFlags::CLONE_FILES) {
+        if flags.contains(CloneFlags::FILES) {
             FD_TABLE
                 .deref_from(&process_data.ns)
                 .init_shared(FD_TABLE.share());
@@ -151,7 +174,7 @@ pub fn sys_clone(
                 .init_new(FD_TABLE.copy_inner());
         }
 
-        if flags.contains(CloneFlags::CLONE_FS) {
+        if flags.contains(CloneFlags::FS) {
             CURRENT_DIR
                 .deref_from(&process_data.ns)
                 .init_shared(CURRENT_DIR.share());
@@ -188,4 +211,8 @@ fn read_trapframe_from_kstack(kstack_top: usize) -> TrapFrame {
     let trap_frame_size = core::mem::size_of::<TrapFrame>();
     let trap_frame_ptr = (kstack_top - trap_frame_size) as *mut TrapFrame;
     unsafe { *trap_frame_ptr }
+}
+
+pub fn sys_fork() -> LinuxResult<isize> {
+    sys_clone(SIGCHLD, 0, 0, 0, 0)
 }

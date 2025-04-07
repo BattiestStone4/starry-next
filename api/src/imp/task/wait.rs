@@ -3,27 +3,38 @@ use axerrno::{LinuxError, LinuxResult};
 use axprocess::{Pid, Process};
 use axtask::{TaskExtRef, current};
 use bitflags::bitflags;
+use linux_raw_sys::general::{
+    __WALL, __WCLONE, __WNOTHREAD, WCONTINUED, WEXITED, WNOHANG, WNOWAIT, WUNTRACED,
+};
 use macro_rules_attribute::apply;
 
 use crate::{
-    ptr::{PtrWrapper, UserPtr},
+    ptr::{UserPtr, nullable},
     syscall_instrument,
 };
 
 bitflags! {
     #[derive(Debug)]
     struct WaitOptions: u32 {
-        const WNOHANG = 1 << 0;
+        /// Do not block when there are no processes wishing to report status.
+        const WNOHANG = WNOHANG;
+        /// Report the status of selected processes which are stopped due to a
+        /// `SIGTTIN`, `SIGTTOU`, `SIGTSTP`, or `SIGSTOP` signal.
+        const WUNTRACED = WUNTRACED;
+        /// Report the status of selected processes which have terminated.
+        const WEXITED = WEXITED;
+        /// Report the status of selected processes that have continued from a
+        /// job control stop by receiving a `SIGCONT` signal.
+        const WCONTINUED = WCONTINUED;
+        /// Don't reap, just poll status.
+        const WNOWAIT = WNOWAIT;
 
-        const WUNTRACED = 1 << 1;
-        const WEXITED = 1 << 2;
-        const WCONTINUED = 1 << 3;
-
-        const WNOWAIT = 1 << 24;
-
-        const WNOTHREAD = 1 << 29;
-        const WALL = 1 << 30;
-        const WCLONE = 1 << 31;
+        /// Don't wait on children of other threads in this group
+        const WNOTHREAD = __WNOTHREAD;
+        /// Wait on all children, regardless of type
+        const WALL = __WALL;
+        /// Wait for "clone" children only.
+        const WCLONE = __WCLONE;
     }
 }
 
@@ -74,14 +85,14 @@ pub fn sys_waitpid(pid: i32, exit_code_ptr: UserPtr<i32>, options: u32) -> Linux
         return Err(LinuxError::ECHILD);
     }
 
-    let exit_code = exit_code_ptr.nullable(UserPtr::get)?;
+    let exit_code = nullable!(exit_code_ptr.get_as_mut())?;
     loop {
         if let Some(child) = children.iter().find(|child| child.is_zombie()) {
             if !options.contains(WaitOptions::WNOWAIT) {
                 child.free();
             }
             if let Some(exit_code) = exit_code {
-                unsafe { exit_code.write(child.exit_code()) };
+                *exit_code = child.exit_code();
             }
             return Ok(child.pid() as _);
         } else if options.contains(WaitOptions::WNOHANG) {

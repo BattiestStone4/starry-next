@@ -1,5 +1,7 @@
 use axtask::{TaskExtRef, current};
 
+use crate::fd::FD_TABLE;
+
 pub fn do_exit(exit_code: i32, group_exit: bool) -> ! {
     let curr = current();
     let clear_child_tid = curr.task_ext().thread_data().clear_child_tid() as *mut i32;
@@ -18,6 +20,8 @@ pub fn do_exit(exit_code: i32, group_exit: bool) -> ! {
         // TODO: send exit signal to parent
         process.exit();
         // TODO: clear namespace resources
+        // FIXME: axns should drop all the resources
+        FD_TABLE.clear();
     }
     if group_exit {
         process.group_exit();

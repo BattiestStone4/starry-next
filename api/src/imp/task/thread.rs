@@ -3,10 +3,7 @@ use axtask::{TaskExtRef, current};
 use macro_rules_attribute::apply;
 use num_enum::TryFromPrimitive;
 
-use crate::{
-    ptr::{PtrWrapper, UserConstPtr},
-    syscall_instrument,
-};
+use crate::{ptr::UserConstPtr, syscall_instrument};
 
 #[apply(syscall_instrument)]
 pub fn sys_getpid() -> LinuxResult<isize> {
@@ -82,16 +79,12 @@ pub fn sys_arch_prctl(code: i32, addr: crate::ptr::UserPtr<u64>) -> LinuxResult<
             Ok(0)
         }
         ArchPrctlCode::GetFs => {
-            unsafe {
-                *addr.get()? = axhal::arch::read_thread_pointer() as u64;
-            }
+            *addr.get_as_mut()? = axhal::arch::read_thread_pointer() as u64;
             Ok(0)
         }
 
         ArchPrctlCode::GetGs => {
-            unsafe {
-                *addr.get()? = x86::msr::rdmsr(x86::msr::IA32_KERNEL_GSBASE);
-            }
+            *addr.get_as_mut()? = unsafe { x86::msr::rdmsr(x86::msr::IA32_KERNEL_GSBASE) };
             Ok(0)
         }
         ArchPrctlCode::GetCpuid => Ok(0),

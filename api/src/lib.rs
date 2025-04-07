@@ -4,9 +4,13 @@
 extern crate axlog;
 extern crate alloc;
 
-mod imp;
-mod ptr;
+pub mod fd;
+pub mod path;
+pub mod ptr;
+pub mod sockaddr;
+pub mod time;
 
+mod imp;
 pub use imp::*;
 
 macro_rules! syscall_instrument {(

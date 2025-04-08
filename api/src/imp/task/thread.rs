@@ -212,6 +212,7 @@ pub fn sys_execve(
 }
 
 #[apply(syscall_instrument)]
+#[cfg(target_arch = "x86_64")]
 pub fn sys_fork() -> LinuxResult<isize> {
     sys_clone(17, 0, 0, 0, 0)
 }

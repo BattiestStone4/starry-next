@@ -210,3 +210,20 @@ pub fn sys_execve(
 
     unreachable!("execve should never return");
 }
+
+#[apply(syscall_instrument)]
+pub fn sys_fork() -> LinuxResult<isize> {
+    sys_clone(17, 0, 0, 0, 0)
+}
+
+#[apply(syscall_instrument)]
+pub fn sys_gettid() -> LinuxResult<isize> {
+    warn!("temporarily move to sys_getpid");
+    sys_getpid()
+}
+
+#[apply(syscall_instrument)]
+pub fn sys_prlimit64() -> LinuxResult<isize> {
+    warn!("sys_prlimit64: not implemented");
+    Ok(0)
+}

@@ -1,13 +1,32 @@
 use core::ffi::{c_char, c_void};
 
 use arceos_posix_api::{self as api, ctypes::mode_t};
-use axerrno::LinuxResult;
+use axerrno::{LinuxError, LinuxResult};
 
 use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
 
 pub fn sys_read(fd: i32, buf: UserPtr<c_void>, count: usize) -> LinuxResult<isize> {
     let buf = buf.get_as_bytes(count)?;
     Ok(api::sys_read(fd, buf, count))
+}
+
+pub fn sys_readv(fd: i32, iov: UserConstPtr<api::ctypes::iovec>, iocnt: i32) -> LinuxResult<isize> {
+    debug!("sys_readv <= fd: {}", fd);
+    if !(0..=1024).contains(&iocnt) {
+        return Err(LinuxError::EINVAL);
+    }
+
+    let iov = iov.get_as_bytes(iocnt as _)?;
+    let iovs = unsafe { core::slice::from_raw_parts(iov, iocnt as usize) };
+    let mut ret = 0;
+    for iov in iovs.iter() {
+        let result = api::sys_read(fd, iov.iov_base, iov.iov_len);
+        ret += result;
+        if result < iov.iov_len as isize {
+            break;
+        }
+    }
+    Ok(ret)
 }
 
 pub fn sys_write(fd: i32, buf: UserConstPtr<c_void>, count: usize) -> LinuxResult<isize> {

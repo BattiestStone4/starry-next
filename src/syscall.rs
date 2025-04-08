@@ -13,6 +13,7 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
     time_stat_from_user_to_kernel();
     let result: LinuxResult<isize> = match Sysno::from(syscall_num as u32) {
         Sysno::read => sys_read(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
+        Sysno::readv => sys_readv(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::write => sys_write(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::mmap => sys_mmap(
             tf.arg0().into(),
@@ -95,6 +96,7 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
             tf.arg3() as _,
             tf.arg4().into(),
         ),
+        Sysno::statfs => sys_statfs(tf.arg0().into(), tf.arg1().into()),
         Sysno::munmap => sys_munmap(tf.arg0().into(), tf.arg1() as _),
         Sysno::mprotect => sys_mprotect(tf.arg0().into(), tf.arg1() as _, tf.arg2() as _),
         Sysno::times => sys_times(tf.arg0().into()),

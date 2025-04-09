@@ -2,11 +2,11 @@ use core::ffi::{c_char, c_int};
 
 use axerrno::{AxError, LinuxError, LinuxResult};
 use axfs::fops::OpenOptions;
-use linux_raw_sys::general::{AT_EMPTY_PATH, statfs, statx};
+use linux_raw_sys::general::{AT_EMPTY_PATH, stat, statfs, statx};
 use macro_rules_attribute::apply;
 
 use crate::{
-    fd::{Directory, File, FileLike, Kstat, get_file_like, stat},
+    fd::{Directory, File, FileLike, Kstat, get_file_like},
     path::handle_file_path,
     ptr::{UserConstPtr, UserPtr, nullable},
     syscall_instrument,

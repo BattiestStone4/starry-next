@@ -385,7 +385,7 @@ dependencies = [
 [[package]]
 name = "axprocess"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axprocess.git#f16a5a1909688054b9fb33d3092f6f5f06bcca29"
+source = "git+https://github.com/Starry-OS/axprocess.git#02cffaf868aac9eca78a5a7feea71a74ed691b3e"
 dependencies = [
  "kspin",
  "weak-map",
@@ -409,6 +409,20 @@ dependencies = [
  "ctor_bare",
  "kernel_guard",
  "percpu",
+]
+
+[[package]]
+name = "axsignal"
+version = "0.1.0"
+source = "git+https://github.com/Starry-OS/axsignal.git#e9613e8c9c9e55df9a5de2ee61dcfe754ddb85f5"
+dependencies = [
+ "axconfig",
+ "axerrno",
+ "axhal",
+ "axtask",
+ "bitflags 2.9.0",
+ "linux-raw-sys",
+ "log",
 ]
 
 [[package]]
@@ -1180,6 +1194,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "starry"
 version = "0.1.0"
 dependencies = [
+ "axconfig",
  "axerrno",
  "axfeat",
  "axfs",
@@ -1211,12 +1226,14 @@ dependencies = [
  "axnet",
  "axns",
  "axprocess",
+ "axsignal",
  "axsync",
  "axtask",
  "bitflags 2.9.0",
  "cfg-if",
  "ctor_bare",
  "flatten_objects",
+ "linkme",
  "linux-raw-sys",
  "macro_rules_attribute",
  "memory_addr",
@@ -1238,6 +1255,7 @@ dependencies = [
  "axmm",
  "axns",
  "axprocess",
+ "axsignal",
  "axsync",
  "axtask",
  "crate_interface",

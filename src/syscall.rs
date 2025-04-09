@@ -1,4 +1,4 @@
-use axerrno::{LinuxError, LinuxResult};
+use axerrno::LinuxError;
 use axhal::{
     arch::TrapFrame,
     trap::{SYSCALL, register_trap_handler},
@@ -13,7 +13,8 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
     let sysno = Sysno::from(syscall_num as u32);
     info!("Syscall {}", sysno);
     time_stat_from_user_to_kernel();
-    let result: LinuxResult<isize> = match sysno {
+
+    let result = match sysno {
         Sysno::read => sys_read(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::readv => sys_readv(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
         Sysno::write => sys_write(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
@@ -144,9 +145,17 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
             tf.arg2().into(),
             tf.arg3() as _,
         ),
-        Sysno::rt_sigtimedwait => {
-            sys_rt_sigtimedwait(tf.arg0().into(), tf.arg1().into(), tf.arg2().into())
-        }
+        Sysno::rt_sigtimedwait => sys_rt_sigtimedwait(
+            tf.arg0().into(),
+            tf.arg1().into(),
+            tf.arg2().into(),
+            tf.arg3() as _,
+        ),
+        Sysno::rt_sigsuspend => sys_rt_sigsuspend(tf, tf.arg0().into(), tf.arg1() as _),
+        Sysno::rt_sigpending => sys_rt_sigpending(tf.arg0().into(), tf.arg1() as _),
+        Sysno::rt_sigreturn => sys_rt_sigreturn(tf),
+        Sysno::kill => sys_kill(tf.arg0() as _, tf.arg1() as _),
+        Sysno::tgkill => sys_tgkill(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
         Sysno::futex => {
             warn!("preventing pthread from blocking testing");
             do_exit(SIGSYS as _, true);
@@ -156,12 +165,12 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
             Err(LinuxError::ENOSYS)
         }
     };
-    let ans = result.unwrap_or_else(|err| -err.code() as _);
+    let result = result.unwrap_or_else(|err| -err.code() as isize);
     time_stat_from_kernel_to_user();
     info!(
-        "Syscall {:?} return {}",
+        "Syscall {:?} return {:?}",
         Sysno::from(syscall_num as u32),
-        ans
+        result,
     );
-    ans
+    result
 }

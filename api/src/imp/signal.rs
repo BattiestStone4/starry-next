@@ -13,7 +13,9 @@ use axsignal::{
 };
 use axtask::{TaskExtRef, current};
 use linux_raw_sys::general::{SI_TKILL, SI_USER, siginfo, timespec};
-use starry_core::task::{ProcessData, ThreadData, get_process, get_process_group, get_thread};
+use starry_core::task::{
+    ProcessData, ThreadData, get_process, get_process_group, get_thread, processes,
+};
 
 use crate::ptr::{UserConstPtr, UserPtr, nullable};
 
@@ -312,15 +314,14 @@ pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
             result += send_signal_process_group(&pg, sig);
         }
         -1 => {
-            // TODO: this should "send signal to every process for which the
-            // calling process has permission to send signals, except for
-            // process 1"
-            // let mut guard = curr.task_ext().signal.lock();
-            // for child in curr.task_ext().children.lock().iter() {
-            // result += child.task_ext().signal.lock().send_signal(sig.clone()) as isize;
-            // }
-            // result += guard.send_signal(sig) as isize;
-            todo!()
+            for proc in processes() {
+                if proc.parent().is_none() {
+                    // init process
+                    continue;
+                }
+                send_signal_process(&proc, sig.clone());
+                result += 1;
+            }
         }
         ..-1 => {
             let pg = get_process_group((-pid) as Pid)?;

@@ -8,6 +8,7 @@ use core::{
 use alloc::{
     string::String,
     sync::{Arc, Weak},
+    vec::Vec,
 };
 use axerrno::{LinuxError, LinuxResult};
 use axhal::{
@@ -272,6 +273,10 @@ pub fn add_thread_to_table(thread: &Arc<Thread>) {
         return;
     }
     session_table.insert(session.sid(), &session);
+}
+
+pub fn processes() -> Vec<Arc<Process>> {
+    PROCESS_TABLE.read().values().collect()
 }
 
 pub fn get_thread(tid: Pid) -> LinuxResult<Arc<Thread>> {

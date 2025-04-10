@@ -2,7 +2,7 @@ use alloc::sync::Arc;
 use axerrno::{LinuxError, LinuxResult};
 use axfs::{CURRENT_DIR, CURRENT_DIR_PATH};
 use axhal::arch::{TrapFrame, UspaceContext};
-use axprocess::{Pid, ProcessBuilder, ThreadBuilder};
+use axprocess::Pid;
 use axsync::Mutex;
 use axtask::{TaskExtRef, current};
 use bitflags::bitflags;
@@ -117,28 +117,22 @@ pub fn sys_clone(
     new_uctx.set_retval(0);
 
     let tid = new_task.id().as_u64() as Pid;
-    if flags.contains(CloneFlags::THREAD) {
+    let process = if flags.contains(CloneFlags::THREAD) {
         if !flags.contains(CloneFlags::VM | CloneFlags::SIGHAND) {
             return Err(LinuxError::EINVAL);
         }
-
-        // create a new thread
-        let thread = ThreadBuilder::new(tid, curr.task_ext().thread.process().clone())
-            .data(ThreadData::new())
-            .build();
-        add_thread_to_table(&thread);
-
-        new_task.init_task_ext(TaskExt::new(new_uctx, thread));
+        curr.task_ext().thread.process()
     } else {
         // create a new process
-        let parent = if flags.contains(CloneFlags::PARENT) {
+        let builder = if flags.contains(CloneFlags::PARENT) {
             curr.task_ext()
                 .thread
                 .process()
                 .parent()
                 .ok_or(LinuxError::EINVAL)?
+                .fork(tid)
         } else {
-            curr.task_ext().thread.process().clone()
+            curr.task_ext().thread.process().fork(tid)
         };
 
         let aspace = if flags.contains(CloneFlags::VM) {
@@ -183,19 +177,12 @@ pub fn sys_clone(
                 .deref_from(&process_data.ns)
                 .init_new(CURRENT_DIR_PATH.copy_inner());
         }
+        &builder.data(process_data).build()
+    };
 
-        let process = ProcessBuilder::new(tid)
-            .data(process_data)
-            .parent(parent)
-            .build();
-
-        let thread = ThreadBuilder::new(tid, process.clone())
-            .data(ThreadData::new())
-            .build();
-        add_thread_to_table(&thread);
-
-        new_task.init_task_ext(TaskExt::new(new_uctx, thread));
-    }
+    let thread = process.new_thread(tid).data(ThreadData::new()).build();
+    add_thread_to_table(&thread);
+    new_task.init_task_ext(TaskExt::new(new_uctx, thread));
     axtask::spawn_task(new_task);
 
     Ok(tid as _)

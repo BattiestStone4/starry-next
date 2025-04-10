@@ -24,11 +24,9 @@ pub fn do_exit(exit_code: i32, group_exit: bool) -> ! {
         process.exit();
         if let Some(parent) = process.parent() {
             send_signal_process(&parent, SignalInfo::new(SIGCHLD, SI_KERNEL));
-            parent
-                .data::<ProcessData>()
-                .unwrap()
-                .child_exit_wq
-                .notify_all(false);
+            if let Some(data) = parent.data::<ProcessData>() {
+                data.child_exit_wq.notify_all(false)
+            }
         }
 
         // TODO: clear namespace resources

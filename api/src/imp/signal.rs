@@ -265,14 +265,20 @@ pub fn sys_rt_sigsuspend(
 
 pub fn send_signal_thread(thr: &Thread, sig: SignalInfo) {
     info!("Send signal {} to thread {}", sig.signo(), thr.tid());
-    let thr_data: &ThreadData = thr.data().unwrap();
-    let proc_data: &ProcessData = thr.process().data().unwrap();
+    let Some(thr_data) = thr.data::<ThreadData>() else {
+        return;
+    };
+    let Some(proc_data) = thr.process().data::<ProcessData>() else {
+        return;
+    };
     thr_data.pending.lock().send_signal(sig);
     proc_data.signal_wq.notify_all(false);
 }
 pub fn send_signal_process(proc: &Process, sig: SignalInfo) {
     info!("Send signal {} to process {}", sig.signo(), proc.pid());
-    let proc_data: &ProcessData = proc.data().unwrap();
+    let Some(proc_data) = proc.data::<ProcessData>() else {
+        return;
+    };
     proc_data.pending.lock().send_signal(sig);
     proc_data.signal_wq.notify_one(false);
 }
@@ -315,7 +321,7 @@ pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
         }
         -1 => {
             for proc in processes() {
-                if proc.parent().is_none() {
+                if proc.is_init() {
                     // init process
                     continue;
                 }

@@ -5,7 +5,7 @@ use axhal::{
     mem::{PAGE_SIZE_4K, virt_to_phys},
     paging::MappingFlags,
 };
-use axprocess::{Pid, ProcessBuilder, ThreadBuilder};
+use axprocess::{Pid, init_proc};
 use axsync::Mutex;
 use starry_api::fd::FD_TABLE;
 use starry_core::{
@@ -57,15 +57,15 @@ pub fn run_user_app(args: &[String], envs: &[String]) -> Option<i32> {
         .init_new(CURRENT_DIR_PATH.copy_inner());
 
     let tid = task.id().as_u64() as Pid;
-    let process = ProcessBuilder::new(tid).data(process_data).build();
+    let process = init_proc().fork(tid).data(process_data).build();
 
-    let thread = ThreadBuilder::new(tid, process)
-        .data(ThreadData::new())
-        .build();
+    let thread = process.new_thread(tid).data(ThreadData::new()).build();
     add_thread_to_table(&thread);
 
     task.init_task_ext(TaskExt::new(uctx, thread));
 
     let task = axtask::spawn_task(task);
+
+    // TODO: we need a way to wait on the process but not only the main task
     task.join()
 }

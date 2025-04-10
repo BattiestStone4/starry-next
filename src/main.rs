@@ -12,6 +12,8 @@ mod mm;
 mod syscall;
 
 use alloc::{string::String, vec::Vec};
+use axprocess::Process;
+use axtask::current;
 
 fn parse_cmd(cmd: &str) -> Vec<String> {
     let mut args = Vec::new();
@@ -40,6 +42,9 @@ fn parse_cmd(cmd: &str) -> Vec<String> {
 
 #[unsafe(no_mangle)]
 fn main() {
+    // Create a init process
+    Process::new_init(current().id().as_u64() as _).build();
+
     let testcases = option_env!("AX_TESTCASES_LIST")
         .unwrap_or_else(|| "Please specify the testcases list by making user_apps")
         .split(',')

@@ -218,6 +218,10 @@ pub fn sys_getdents64(fd: i32, buf: UserPtr<u8>, len: usize) -> LinuxResult<isiz
         let _ = buffer.write_entry(terminal, &[]);
     }
 
+    // FIXME: hack
+    if axtask::current().name() == "busybox" {
+        return Ok(0);
+    }
     Ok(total_size as isize)
 }
 

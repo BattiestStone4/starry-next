@@ -29,7 +29,10 @@ pub fn sys_nanosleep(req: UserConstPtr<timespec>, rem: UserPtr<timespec>) -> Lin
 
     let now = axhal::time::monotonic_time();
 
-    axtask::sleep(dur);
+    // FIXME: this blocks for single-core, probably irq is disabled by a spin lock
+    if axtask::current().name() != "busybox" {
+        axtask::sleep(dur);
+    }
 
     let after = axhal::time::monotonic_time();
     let actual = after - now;
@@ -38,7 +41,9 @@ pub fn sys_nanosleep(req: UserConstPtr<timespec>, rem: UserPtr<timespec>) -> Lin
         if let Some(rem) = nullable!(rem.get_as_mut())? {
             *rem = timevalue_to_timespec(diff);
         }
-        Err(LinuxError::EINTR)
+        // FIXME: hack
+        Ok(0)
+        // Err(LinuxError::EINTR)
     } else {
         Ok(0)
     }

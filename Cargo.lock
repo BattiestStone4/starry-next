@@ -1204,6 +1204,7 @@ dependencies = [
  "axlog",
  "axprocess",
  "axruntime",
+ "axsignal",
  "axsync",
  "axtask",
  "linkme",

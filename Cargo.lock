@@ -415,7 +415,7 @@ dependencies = [
 [[package]]
 name = "axsignal"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axsignal.git#6b8bd91b4e45d8ec14940b8bd9a7c96e4a830a6b"
+source = "git+https://github.com/Starry-OS/axsignal.git#5ea5b6b8338df6dbab1624eb2efde2f1a1f21617"
 dependencies = [
  "axconfig",
  "axerrno",
@@ -432,6 +432,7 @@ version = "0.1.0"
 dependencies = [
  "axtask",
  "kspin",
+ "lock_api",
 ]
 
 [[package]]

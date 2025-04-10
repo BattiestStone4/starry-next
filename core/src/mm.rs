@@ -111,7 +111,7 @@ pub fn load_user_app(
     if args.is_empty() {
         return Err(AxError::InvalidInput);
     }
-    let file_data = axfs::api::read(if args[0] == "/bin/sh" {
+    let file_data = axfs::api::read(if args[0].starts_with("/bin/") {
         "/musl/busybox"
     } else {
         args[0].as_str()

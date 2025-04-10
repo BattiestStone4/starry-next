@@ -432,7 +432,6 @@ version = "0.1.0"
 dependencies = [
  "axtask",
  "kspin",
- "lock_api",
 ]
 
 [[package]]

@@ -385,7 +385,7 @@ dependencies = [
 [[package]]
 name = "axprocess"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axprocess.git#02cffaf868aac9eca78a5a7feea71a74ed691b3e"
+source = "git+https://github.com/Starry-OS/axprocess.git#02534912e75d0cf7bcf20fb147988da380451be4"
 dependencies = [
  "kspin",
  "weak-map",
@@ -414,7 +414,7 @@ dependencies = [
 [[package]]
 name = "axsignal"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axsignal.git#e9613e8c9c9e55df9a5de2ee61dcfe754ddb85f5"
+source = "git+https://github.com/Starry-OS/axsignal.git#6b8bd91b4e45d8ec14940b8bd9a7c96e4a830a6b"
 dependencies = [
  "axconfig",
  "axerrno",

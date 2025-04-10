@@ -181,6 +181,7 @@ pub fn sys_rt_sigtimedwait(
     check_sigset_size(sigsetsize)?;
 
     let curr = current();
+    let proc_data = curr.task_ext().process_data();
     let thr_data = curr.task_ext().thread_data();
     let mut set = *set.get_as_ref()?;
     // Non-blocked signals cannot be waited
@@ -196,8 +197,7 @@ pub fn sys_rt_sigtimedwait(
         return Ok(0);
     }
 
-    let wq = curr.task_ext().process_data().signal_wq.clone();
-
+    let wq = &proc_data.signal_wq;
     let deadline = timeout.map(|dur| axhal::time::wall_time() + dur);
 
     // There might be false wakeups, so we need a loop
@@ -283,7 +283,7 @@ pub fn send_signal_process_group(pg: &ProcessGroup, sig: SignalInfo) -> usize {
     processes.len()
 }
 
-fn make_siginfo(signo: u32, code: i32) -> LinuxResult<Option<SignalInfo>> {
+fn make_siginfo(signo: u32, code: u32) -> LinuxResult<Option<SignalInfo>> {
     if !(1..32).contains(&signo) {
         return Err(LinuxError::EINVAL);
     }
@@ -294,7 +294,7 @@ fn make_siginfo(signo: u32, code: i32) -> LinuxResult<Option<SignalInfo>> {
 }
 
 pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
-    let Some(sig) = make_siginfo(sig, SI_USER as i32)? else {
+    let Some(sig) = make_siginfo(sig, SI_USER)? else {
         // TODO: should also check permissions
         return Ok(0);
     };
@@ -332,7 +332,7 @@ pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
 }
 
 pub fn sys_tgkill(tgid: Pid, tid: Pid, sig: u32) -> LinuxResult<isize> {
-    let Some(sig) = make_siginfo(sig, SI_TKILL)? else {
+    let Some(sig) = make_siginfo(sig, SI_TKILL as u32)? else {
         // TODO: should also check permissions
         return Ok(0);
     };

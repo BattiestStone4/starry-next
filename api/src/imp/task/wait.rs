@@ -65,6 +65,7 @@ pub fn sys_waitpid(pid: i32, exit_code_ptr: UserPtr<i32>, options: u32) -> Linux
 
     let curr = current();
     let process = curr.task_ext().thread.process();
+    let proc_data = curr.task_ext().process_data();
 
     let pid = if pid == -1 {
         WaitPid::Any
@@ -98,8 +99,7 @@ pub fn sys_waitpid(pid: i32, exit_code_ptr: UserPtr<i32>, options: u32) -> Linux
         } else if options.contains(WaitOptions::WNOHANG) {
             return Ok(0);
         } else {
-            // TODO: process wait queue
-            crate::sys_sched_yield()?;
+            proc_data.child_exit_wq.wait();
         }
     }
 }

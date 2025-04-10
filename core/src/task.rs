@@ -170,7 +170,9 @@ pub struct ProcessData {
     ///
     /// Note that this is shared by all threads in the process, so false wakeups
     /// may occur.
-    pub signal_wq: Arc<WaitQueue>,
+    pub signal_wq: WaitQueue,
+    /// The wait queue for child exits.
+    pub child_exit_wq: WaitQueue,
 }
 
 impl ProcessData {
@@ -184,7 +186,8 @@ impl ProcessData {
 
             pending: SpinNoIrq::new(PendingSignals::new()),
             signal_actions: Mutex::default(),
-            signal_wq: Arc::new(WaitQueue::new()),
+            signal_wq: WaitQueue::new(),
+            child_exit_wq: WaitQueue::new(),
         }
     }
 

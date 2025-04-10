@@ -12,7 +12,7 @@ use axsignal::{
     handle_signal,
 };
 use axtask::{TaskExtRef, current};
-use linux_raw_sys::general::{SI_USER, siginfo, timespec};
+use linux_raw_sys::general::{SI_TKILL, SI_USER, siginfo, timespec};
 use starry_core::task::{ProcessData, ThreadData, get_process, get_process_group, get_thread};
 
 use crate::ptr::{UserConstPtr, UserPtr, nullable};
@@ -266,7 +266,7 @@ pub fn send_signal_thread(thr: &Thread, sig: SignalInfo) {
     let thr_data: &ThreadData = thr.data().unwrap();
     let proc_data: &ProcessData = thr.process().data().unwrap();
     thr_data.pending.lock().send_signal(sig);
-    proc_data.signal_wq.notify_one(false);
+    proc_data.signal_wq.notify_all(false);
 }
 pub fn send_signal_process(proc: &Process, sig: SignalInfo) {
     info!("Send signal {} to process {}", sig.signo(), proc.pid());
@@ -283,18 +283,18 @@ pub fn send_signal_process_group(pg: &ProcessGroup, sig: SignalInfo) -> usize {
     processes.len()
 }
 
-fn make_siginfo(signo: u32) -> LinuxResult<Option<SignalInfo>> {
+fn make_siginfo(signo: u32, code: i32) -> LinuxResult<Option<SignalInfo>> {
     if !(1..32).contains(&signo) {
         return Err(LinuxError::EINVAL);
     }
     if signo == 0 {
         return Ok(None);
     }
-    Ok(Some(SignalInfo::new(signo, SI_USER)))
+    Ok(Some(SignalInfo::new(signo, code)))
 }
 
 pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
-    let Some(sig) = make_siginfo(sig)? else {
+    let Some(sig) = make_siginfo(sig, SI_USER as i32)? else {
         // TODO: should also check permissions
         return Ok(0);
     };
@@ -332,7 +332,7 @@ pub fn sys_kill(pid: i32, sig: u32) -> LinuxResult<isize> {
 }
 
 pub fn sys_tgkill(tgid: Pid, tid: Pid, sig: u32) -> LinuxResult<isize> {
-    let Some(sig) = make_siginfo(sig)? else {
+    let Some(sig) = make_siginfo(sig, SI_TKILL)? else {
         // TODO: should also check permissions
         return Ok(0);
     };

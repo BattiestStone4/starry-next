@@ -7,9 +7,7 @@ use axhal::{
 };
 use axprocess::{Pid, Process, ProcessGroup, Thread};
 use axsignal::{
-    SignalOSAction,
-    ctypes::{SignalInfo, SignalSet, k_sigaction},
-    handle_signal,
+    ctypes::{k_sigaction, SignalAction, SignalActionFlags, SignalInfo, SignalSet}, handle_signal, SignalOSAction
 };
 use axtask::{TaskExtRef, current};
 use linux_raw_sys::general::{SI_TKILL, SI_USER, siginfo, timespec};
@@ -38,24 +36,27 @@ fn check_signals(tf: &mut TrapFrame, restore_blocked: Option<SignalSet>) -> bool
     let curr = current();
     let task_ext = curr.task_ext();
 
-    let actions = task_ext.process_data().signal_actions.lock();
+    let mut actions = task_ext.process_data().signal_actions.lock();
 
     let blocked = task_ext.thread_data().blocked.lock();
     let mask = !*blocked;
     let restore_blocked = restore_blocked.unwrap_or_else(|| *blocked);
     drop(blocked);
 
-    let (signo, os_action) = loop {
+    let (signo, os_action, reset) = loop {
         let Some(sig) = dequeue_signal(&mask) else {
             return false;
         };
         let signo = sig.signo();
         let action = &actions[signo as usize];
         if let Some(os_action) = handle_signal(tf, restore_blocked, sig, action) {
-            break (signo, os_action);
+            break (
+                signo,
+                os_action,
+                action.flags.contains(SignalActionFlags::RESETHAND),
+            );
         }
     };
-    drop(actions);
 
     match os_action {
         SignalOSAction::Terminate => {
@@ -73,6 +74,9 @@ fn check_signals(tf: &mut TrapFrame, restore_blocked: Option<SignalSet>) -> bool
             // TODO: implement continue
         }
         SignalOSAction::Handler { add_blocked } => {
+            if reset {
+                actions[signo as usize] = SignalAction::default();
+            }
             task_ext.thread_data().blocked.lock().add_from(&add_blocked);
         }
     }

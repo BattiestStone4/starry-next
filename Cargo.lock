@@ -415,7 +415,7 @@ dependencies = [
 [[package]]
 name = "axsignal"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axsignal.git#5ea5b6b8338df6dbab1624eb2efde2f1a1f21617"
+source = "git+https://github.com/Starry-OS/axsignal.git#3d87780001595823b6b6acd56cfab2cc039b4e67"
 dependencies = [
  "axconfig",
  "axerrno",

@@ -163,6 +163,7 @@ pub struct ProcessData {
     /// The user heap top
     heap_top: AtomicUsize,
 
+    /// The resource limits
     pub rlim: RwLock<Rlimits>,
 
     /// The process-level shared pending signals

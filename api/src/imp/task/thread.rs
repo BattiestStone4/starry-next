@@ -1,16 +1,13 @@
 use axerrno::LinuxResult;
 use axtask::{TaskExtRef, current};
-use macro_rules_attribute::apply;
 use num_enum::TryFromPrimitive;
 
-use crate::{ptr::UserConstPtr, syscall_instrument};
+use crate::ptr::UserConstPtr;
 
-#[apply(syscall_instrument)]
 pub fn sys_getpid() -> LinuxResult<isize> {
     Ok(axtask::current().task_ext().thread.process().pid() as _)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_getppid() -> LinuxResult<isize> {
     Ok(axtask::current()
         .task_ext()
@@ -21,7 +18,6 @@ pub fn sys_getppid() -> LinuxResult<isize> {
         .map_or(1, |p| p.pid()) as _)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_gettid() -> LinuxResult<isize> {
     Ok(axtask::current().id().as_u64() as _)
 }
@@ -50,7 +46,6 @@ enum ArchPrctlCode {
 /// To set the clear_child_tid field in the task extended data.
 ///
 /// The set_tid_address() always succeeds
-#[apply(syscall_instrument)]
 pub fn sys_set_tid_address(tid_ptd: UserConstPtr<i32>) -> LinuxResult<isize> {
     let curr = current();
     curr.task_ext()
@@ -60,7 +55,6 @@ pub fn sys_set_tid_address(tid_ptd: UserConstPtr<i32>) -> LinuxResult<isize> {
 }
 
 #[cfg(target_arch = "x86_64")]
-#[apply(syscall_instrument)]
 pub fn sys_arch_prctl(code: i32, addr: crate::ptr::UserPtr<u64>) -> LinuxResult<isize> {
     use axerrno::LinuxError;
     match ArchPrctlCode::try_from(code).map_err(|_| LinuxError::EINVAL)? {

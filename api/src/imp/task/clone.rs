@@ -12,13 +12,12 @@ use linux_raw_sys::general::{
     CLONE_PARENT, CLONE_PARENT_SETTID, CLONE_PTRACE, CLONE_SETTLS, CLONE_SIGHAND, CLONE_SYSVSEM,
     CLONE_THREAD, CLONE_UNTRACED, CLONE_VFORK, CLONE_VM, SIGCHLD,
 };
-use macro_rules_attribute::apply;
 use starry_core::{
     mm::copy_from_kernel,
     task::{ProcessData, TaskExt, ThreadData, add_thread_to_table, new_user_task},
 };
 
-use crate::{fd::FD_TABLE, syscall_instrument};
+use crate::fd::FD_TABLE;
 
 bitflags! {
     /// Options for use with [`sys_clone`].
@@ -83,7 +82,6 @@ bitflags! {
     }
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_clone(
     flags: u32,
     stack: usize,

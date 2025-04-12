@@ -1,15 +1,12 @@
 use core::ffi::c_int;
 
 use axerrno::LinuxResult;
-use macro_rules_attribute::apply;
 
 use crate::{
     fd::{FileLike, Pipe, close_file_like},
     ptr::UserPtr,
-    syscall_instrument,
 };
 
-#[apply(syscall_instrument)]
 pub fn sys_pipe(fds: UserPtr<[c_int; 2]>) -> LinuxResult<isize> {
     let fds = fds.get_as_mut()?;
 

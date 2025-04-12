@@ -28,7 +28,7 @@ use memory_addr::VirtAddrRange;
 use spin::{Once, RwLock};
 use weak_map::WeakMap;
 
-use crate::time::TimeStat;
+use crate::{resources::Rlimits, time::TimeStat};
 
 pub fn new_user_task(name: &str) -> TaskInner {
     TaskInner::new(
@@ -163,6 +163,8 @@ pub struct ProcessData {
     /// The user heap top
     heap_top: AtomicUsize,
 
+    pub rlim: RwLock<Rlimits>,
+
     /// The process-level shared pending signals
     pub pending: SpinNoIrq<PendingSignals>,
     /// The signal actions
@@ -184,6 +186,8 @@ impl ProcessData {
             ns: AxNamespace::new_thread_local(),
             heap_bottom: AtomicUsize::new(axconfig::plat::USER_HEAP_BASE),
             heap_top: AtomicUsize::new(axconfig::plat::USER_HEAP_BASE),
+
+            rlim: RwLock::default(),
 
             pending: SpinNoIrq::new(PendingSignals::new()),
             signal_actions: Mutex::default(),

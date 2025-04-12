@@ -415,7 +415,7 @@ dependencies = [
 [[package]]
 name = "axsignal"
 version = "0.1.0"
-source = "git+https://github.com/Starry-OS/axsignal.git#3d87780001595823b6b6acd56cfab2cc039b4e67"
+source = "git+https://github.com/Starry-OS/axsignal.git#41b50425722ad1e4be1b13cad71f59982b451611"
 dependencies = [
  "axconfig",
  "axerrno",
@@ -1247,6 +1247,7 @@ dependencies = [
  "crate_interface",
  "kernel-elf-parser",
  "linkme",
+ "linux-raw-sys",
  "memory_addr",
  "numeric-enum-macro",
  "percpu",

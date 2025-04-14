@@ -1,12 +1,8 @@
 use core::ffi::c_char;
 
 use axerrno::{LinuxError, LinuxResult};
-use macro_rules_attribute::apply;
 
-use crate::{
-    ptr::{PtrWrapper, UserConstPtr, UserPtr},
-    syscall_instrument,
-};
+use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
 
 #[derive(Debug, Clone, Copy, Default)]
 #[repr(C)]
@@ -92,7 +88,6 @@ pub fn sys_fstat(fd: i32, kstatbuf: UserPtr<Kstat>) -> LinuxResult<isize> {
     Ok(0)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_fstatat(
     dir_fd: isize,
     path: UserConstPtr<c_char>,
@@ -182,7 +177,6 @@ pub struct StatX {
     pub stx_dio_offset_align: u32,
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_statx(
     dirfd: i32,
     pathname: UserConstPtr<c_char>,
@@ -282,11 +276,7 @@ pub struct FsStat {
     pub f_spare: [isize; 4],
 }
 
-#[apply(syscall_instrument)]
-pub fn sys_statfs(
-    _path: UserConstPtr<c_char>,
-    fsstatbuf: UserPtr<FsStat>,
-) -> LinuxResult<isize> {
+pub fn sys_statfs(_path: UserConstPtr<c_char>, fsstatbuf: UserPtr<FsStat>) -> LinuxResult<isize> {
     let fsstatbuf = fsstatbuf.get()?;
     let fsstat = FsStat {
         f_type: 0,

@@ -7,7 +7,7 @@ pub fn sys_dup(old_fd: c_int) -> LinuxResult<isize> {
     Ok(api::sys_dup(old_fd) as _)
 }
 
-pub fn sys_dup3(old_fd: c_int, new_fd: c_int) -> LinuxResult<isize> {
+pub fn sys_dup2(old_fd: c_int, new_fd: c_int) -> LinuxResult<isize> {
     Ok(api::sys_dup2(old_fd, new_fd) as _)
 }
 

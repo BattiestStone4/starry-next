@@ -1,9 +1,9 @@
-use core::ffi::{c_char, c_void};
-
-use arceos_posix_api::{self as api, ctypes::mode_t};
+use alloc::vec;
+use arceos_posix_api::{self as api, File, FileLike, ctypes::mode_t, get_file_like};
 use axerrno::{LinuxError, LinuxResult};
+use core::ffi::{c_char, c_int, c_void};
 
-use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
+use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr, nullable};
 
 pub fn sys_read(fd: i32, buf: UserPtr<c_void>, count: usize) -> LinuxResult<isize> {
     let buf = buf.get_as_bytes(count)?;
@@ -60,4 +60,65 @@ pub fn sys_open(path: UserConstPtr<c_char>, flags: i32, modes: mode_t) -> LinuxR
 
 pub fn sys_lseek(fd: i32, offset: isize, whence: i32) -> LinuxResult<isize> {
     Ok(api::sys_lseek(fd, offset as _, whence) as _)
+}
+
+pub fn sys_sendfile(
+    out_fd: c_int,
+    in_fd: c_int,
+    offset: UserPtr<u64>,
+    len: usize,
+) -> LinuxResult<isize> {
+    debug!(
+        "sys_sendfile <= out_fd: {}, in_fd: {}, offset: {}, len: {}",
+        out_fd,
+        in_fd,
+        !offset.is_null(),
+        len
+    );
+
+    let src = get_file_like(in_fd)?;
+    let dest = get_file_like(out_fd)?;
+    let offset = nullable!(offset.get_as_mut())?;
+
+    if let Some(offset) = offset {
+        let src = src
+            .into_any()
+            .downcast::<File>()
+            .map_err(|_| LinuxError::ESPIPE)?;
+
+        do_sendfile(
+            |buf| {
+                let bytes_read = src.inner().lock().read_at(*offset, buf)?;
+                *offset += bytes_read as u64;
+                Ok(bytes_read)
+            },
+            dest.as_ref(),
+        )
+    } else {
+        do_sendfile(|buf| src.read(buf), dest.as_ref())
+    }
+    .map(|n| n as _)
+}
+
+fn do_sendfile<F, D>(mut read: F, dest: &D) -> LinuxResult<usize>
+where
+    F: FnMut(&mut [u8]) -> LinuxResult<usize>,
+    D: FileLike + ?Sized,
+{
+    let mut buf = vec![0; 0x1000];
+    let mut total_written = 0;
+    loop {
+        let bytes_read = read(&mut buf)?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        let bytes_written = dest.write(&buf[..bytes_read])?;
+        if bytes_written < bytes_read {
+            break;
+        }
+        total_written += bytes_written;
+    }
+
+    Ok(total_written)
 }

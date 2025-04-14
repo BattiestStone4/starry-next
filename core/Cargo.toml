@@ -20,6 +20,7 @@ arceos_posix_api.workspace = true
 axerrno.workspace = true
 bitflags.workspace = true
 linkme.workspace = true
+linux-raw-sys.workspace = true
 memory_addr.workspace = true
 
 crate_interface = "0.1"

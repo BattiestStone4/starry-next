@@ -29,7 +29,7 @@ fn check_region(start: VirtAddr, layout: Layout, access_flags: MappingFlags) -> 
     Ok(())
 }
 
-fn check_null_terminated<T: Eq + Default>(
+fn check_null_terminated<T: PartialEq + Default>(
     start: VirtAddr,
     access_flags: MappingFlags,
 ) -> LinuxResult<(*const T, usize)> {
@@ -173,15 +173,30 @@ impl<T> PtrWrapper<T> for UserPtr<T> {
 }
 
 impl<T> UserPtr<T> {
-    /// Get the pointer as `&mut [T]`, terminated by a null value, validating
-    /// the memory region.
-    pub fn get_as_null_terminated(self) -> LinuxResult<&'static mut [T]>
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+
+    pub fn get_as_mut(self) -> LinuxResult<&'static mut T> {
+        check_region(self.address(), Layout::new::<T>(), Self::ACCESS_FLAGS)?;
+        Ok(unsafe { &mut *self.0 })
+    }
+
+    pub fn get_as_mut_slice(self, len: usize) -> LinuxResult<&'static mut [T]> {
+        check_region(
+            self.address(),
+            Layout::array::<T>(len).unwrap(),
+            Self::ACCESS_FLAGS,
+        )?;
+        Ok(unsafe { core::slice::from_raw_parts_mut(self.0, len) })
+    }
+
+    pub fn get_as_mut_null_terminated(self) -> LinuxResult<&'static mut [T]>
     where
-        T: Eq + Default,
+        T: PartialEq + Default,
     {
-        let (ptr, len) = check_null_terminated::<T>(self.address(), Self::ACCESS_FLAGS)?;
-        // SAFETY: We've validated the memory region.
-        unsafe { Ok(slice::from_raw_parts_mut(ptr as *mut _, len)) }
+        let len = check_null_terminated::<T>(self.address(), Self::ACCESS_FLAGS)?.1;
+        Ok(unsafe { core::slice::from_raw_parts_mut(self.0, len) })
     }
 }
 
@@ -212,15 +227,30 @@ impl<T> PtrWrapper<T> for UserConstPtr<T> {
 }
 
 impl<T> UserConstPtr<T> {
-    /// Get the pointer as `&[T]`, terminated by a null value, validating the
-    /// memory region.
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+
+    pub fn get_as_ref(self) -> LinuxResult<&'static T> {
+        check_region(self.address(), Layout::new::<T>(), Self::ACCESS_FLAGS)?;
+        Ok(unsafe { &*self.0 })
+    }
+
+    pub fn get_as_slice(self, len: usize) -> LinuxResult<&'static [T]> {
+        check_region(
+            self.address(),
+            Layout::array::<T>(len).unwrap(),
+            Self::ACCESS_FLAGS,
+        )?;
+        Ok(unsafe { core::slice::from_raw_parts(self.0, len) })
+    }
+
     pub fn get_as_null_terminated(self) -> LinuxResult<&'static [T]>
     where
-        T: Eq + Default,
+        T: PartialEq + Default,
     {
-        let (ptr, len) = check_null_terminated::<T>(self.address(), Self::ACCESS_FLAGS)?;
-        // SAFETY: We've validated the memory region.
-        unsafe { Ok(slice::from_raw_parts(ptr, len)) }
+        let len = check_null_terminated::<T>(self.address(), Self::ACCESS_FLAGS)?.1;
+        Ok(unsafe { core::slice::from_raw_parts(self.0, len) })
     }
 }
 
@@ -236,3 +266,14 @@ impl UserConstPtr<c_char> {
         str::from_utf8(slice).map_err(|_| LinuxError::EILSEQ)
     }
 }
+
+macro_rules! nullable {
+    ($ptr:ident.$func:ident($($arg:expr),*)) => {
+        if $ptr.is_null() {
+            Ok(None)
+        } else {
+            Some($ptr.$func($($arg),*)).transpose()
+        }
+    };
+}
+pub(crate) use nullable;

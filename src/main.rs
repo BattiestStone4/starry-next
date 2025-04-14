@@ -8,6 +8,7 @@ extern crate alloc;
 
 mod syscall;
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use starry_core::entry::run_user_app;
 

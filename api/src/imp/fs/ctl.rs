@@ -3,12 +3,8 @@ use core::ffi::{c_char, c_void};
 use alloc::string::ToString;
 use arceos_posix_api::AT_FDCWD;
 use axerrno::{AxError, LinuxError, LinuxResult};
-use macro_rules_attribute::apply;
 
-use crate::{
-    ptr::{PtrWrapper, UserConstPtr, UserPtr},
-    syscall_instrument,
-};
+use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
 
 /// The ioctl() system call manipulates the underlying device parameters
 /// of special files.
@@ -18,7 +14,6 @@ use crate::{
 /// * `op` - The request code. It is of type unsigned long in glibc and BSD,
 ///   and of type int in musl and other UNIX systems.
 /// * `argp` - The argument to the request. It is a pointer to a memory location
-#[apply(syscall_instrument)]
 pub fn sys_ioctl(_fd: i32, _op: usize, _argp: UserPtr<c_void>) -> LinuxResult<isize> {
     warn!("Unimplemented syscall: SYS_IOCTL");
     Ok(0)
@@ -294,7 +289,7 @@ pub fn sys_unlinkat(dir_fd: isize, path: UserConstPtr<c_char>, flags: usize) -> 
 }
 
 pub fn sys_getcwd(buf: UserPtr<c_char>, size: usize) -> LinuxResult<isize> {
-    Ok(arceos_posix_api::sys_getcwd(buf.get_as_null_terminated()?.as_ptr() as _, size) as _)
+    Ok(arceos_posix_api::sys_getcwd(buf.get_as_mut_null_terminated()?.as_ptr() as _, size) as _)
 }
 
 #[cfg(target_arch = "x86_64")]

@@ -3,17 +3,13 @@ use core::{ffi::c_char, ptr};
 use alloc::vec::Vec;
 use axerrno::{LinuxError, LinuxResult};
 use axtask::{TaskExtRef, current, yield_now};
-use macro_rules_attribute::apply;
 use num_enum::TryFromPrimitive;
 use starry_core::{
     ctypes::{WaitFlags, WaitStatus},
     task::{exec, wait_pid},
 };
 
-use crate::{
-    ptr::{PtrWrapper, UserConstPtr, UserPtr},
-    syscall_instrument,
-};
+use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
 
 /// ARCH_PRCTL codes
 ///
@@ -36,12 +32,10 @@ enum ArchPrctlCode {
     SetCpuid = 0x1012,
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_getpid() -> LinuxResult<isize> {
     Ok(axtask::current().task_ext().proc_id as _)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_getppid() -> LinuxResult<isize> {
     Ok(axtask::current().task_ext().get_parent() as _)
 }
@@ -68,7 +62,6 @@ pub fn sys_exit_group(status: i32) -> ! {
 /// To set the clear_child_tid field in the task extended data.
 ///
 /// The set_tid_address() always succeeds
-#[apply(syscall_instrument)]
 pub fn sys_set_tid_address(tid_ptd: UserConstPtr<i32>) -> LinuxResult<isize> {
     let curr = current();
     curr.task_ext()
@@ -77,7 +70,6 @@ pub fn sys_set_tid_address(tid_ptd: UserConstPtr<i32>) -> LinuxResult<isize> {
 }
 
 #[cfg(target_arch = "x86_64")]
-#[apply(syscall_instrument)]
 pub fn sys_arch_prctl(code: i32, addr: UserPtr<u64>) -> LinuxResult<isize> {
     use axerrno::LinuxError;
     match ArchPrctlCode::try_from(code).map_err(|_| LinuxError::EINVAL)? {
@@ -113,7 +105,6 @@ pub fn sys_arch_prctl(code: i32, addr: UserPtr<u64>) -> LinuxResult<isize> {
     }
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_clone(
     flags: usize,
     user_stack: usize,
@@ -142,7 +133,6 @@ pub fn sys_clone(
     }
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_wait4(pid: i32, exit_code_ptr: UserPtr<i32>, option: u32) -> LinuxResult<isize> {
     let option_flag = WaitFlags::from_bits(option).unwrap();
     let exit_code_ptr = exit_code_ptr.nullable(UserPtr::get)?;
@@ -171,7 +161,6 @@ pub fn sys_wait4(pid: i32, exit_code_ptr: UserPtr<i32>, option: u32) -> LinuxRes
     }
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_execve(
     path: UserConstPtr<c_char>,
     argv: UserConstPtr<usize>,
@@ -211,19 +200,16 @@ pub fn sys_execve(
     unreachable!("execve should never return");
 }
 
-#[apply(syscall_instrument)]
 #[cfg(target_arch = "x86_64")]
 pub fn sys_fork() -> LinuxResult<isize> {
     sys_clone(17, 0, 0, 0, 0)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_gettid() -> LinuxResult<isize> {
     warn!("temporarily move to sys_getpid");
     sys_getpid()
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_prlimit64() -> LinuxResult<isize> {
     warn!("sys_prlimit64: not implemented");
     Ok(0)

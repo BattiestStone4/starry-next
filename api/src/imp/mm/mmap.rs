@@ -2,13 +2,9 @@ use alloc::vec;
 use axerrno::{LinuxError, LinuxResult};
 use axhal::paging::MappingFlags;
 use axtask::{TaskExtRef, current};
-use macro_rules_attribute::apply;
 use memory_addr::{VirtAddr, VirtAddrRange};
 
-use crate::{
-    ptr::{PtrWrapper, UserPtr},
-    syscall_instrument,
-};
+use crate::ptr::{PtrWrapper, UserPtr};
 
 bitflags::bitflags! {
     /// permissions for sys_mmap
@@ -66,7 +62,6 @@ bitflags::bitflags! {
     }
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_mmap(
     addr: UserPtr<usize>,
     length: usize,
@@ -157,7 +152,6 @@ pub fn sys_mmap(
     Ok(start_addr.as_usize() as _)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_munmap(addr: UserPtr<usize>, length: usize) -> LinuxResult<isize> {
     // Safety: addr is used for mapping, and we won't directly access it.
     let addr = unsafe { addr.into_inner() };
@@ -172,7 +166,6 @@ pub fn sys_munmap(addr: UserPtr<usize>, length: usize) -> LinuxResult<isize> {
     Ok(0)
 }
 
-#[apply(syscall_instrument)]
 pub fn sys_mprotect(addr: UserPtr<usize>, length: usize, prot: i32) -> LinuxResult<isize> {
     // Safety: addr is used for mapping, and we won't directly access it.
     let addr = unsafe { addr.into_inner() };

@@ -8,6 +8,7 @@ pub fn sys_dup(old_fd: c_int) -> LinuxResult<isize> {
 }
 
 pub fn sys_dup2(old_fd: c_int, new_fd: c_int) -> LinuxResult<isize> {
+    info!("sys_dup2 <= old_fd: {}, new_fd: {}", old_fd, new_fd);
     Ok(api::sys_dup2(old_fd, new_fd) as _)
 }
 

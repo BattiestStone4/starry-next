@@ -38,6 +38,8 @@ axns = { git = "https://github.com/oscomp/arceos.git", features = [
 axsync = { git = "https://github.com/oscomp/arceos.git" }
 axtask = { git = "https://github.com/oscomp/arceos.git" }
 
+axsignal = { git = "https://github.com/Starry-OS/axsignal.git" }
+
 axerrno = "0.1"
 bitflags = "2.6"
 linkme = "0.3"
@@ -74,6 +76,7 @@ axtask.workspace = true
 axerrno.workspace = true
 linkme.workspace = true
 linux-raw-sys.workspace = true
+axsignal.workspace = true
 
 starry-core.workspace = true
 starry-api.workspace = true

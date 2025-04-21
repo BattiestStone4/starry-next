@@ -42,7 +42,7 @@ pub fn sys_getppid() -> LinuxResult<isize> {
 
 pub fn sys_exit(status: i32) -> ! {
     let curr = current();
-    let clear_child_tid = curr.task_ext().clear_child_tid() as *mut i32;
+    let clear_child_tid = curr.task_ext().get_thread().clear_child_tid() as *mut i32;
     if !clear_child_tid.is_null() {
         // TODO: check whether the address is valid
         unsafe {
@@ -65,6 +65,7 @@ pub fn sys_exit_group(status: i32) -> ! {
 pub fn sys_set_tid_address(tid_ptd: UserConstPtr<i32>) -> LinuxResult<isize> {
     let curr = current();
     curr.task_ext()
+        .get_thread()
         .set_clear_child_tid(tid_ptd.address().as_ptr() as _);
     Ok(curr.id().as_u64() as isize)
 }

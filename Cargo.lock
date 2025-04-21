@@ -437,6 +437,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "axsignal"
+version = "0.1.0"
+source = "git+https://github.com/Starry-OS/axsignal.git#667142adfb4d41f81b106ec42ae89c0a0ad15809"
+dependencies = [
+ "axconfig",
+ "axerrno",
+ "axhal",
+ "axtask",
+ "bitflags 2.9.0",
+ "cfg-if",
+ "linux-raw-sys 0.9.4",
+ "log",
+]
+
+[[package]]
 name = "axsync"
 version = "0.1.0"
 dependencies = [
@@ -1403,6 +1418,7 @@ dependencies = [
  "axfeat",
  "axhal",
  "axlog",
+ "axsignal",
  "axtask",
  "linkme",
  "linux-raw-sys 0.9.4",
@@ -1421,6 +1437,7 @@ dependencies = [
  "axfs",
  "axhal",
  "axlog",
+ "axsignal",
  "axsync",
  "axtask",
  "bitflags 2.9.0",
@@ -1445,6 +1462,7 @@ dependencies = [
  "axlog",
  "axmm",
  "axns",
+ "axsignal",
  "axsync",
  "axtask",
  "bitflags 2.9.0",

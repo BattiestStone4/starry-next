@@ -1,6 +1,5 @@
 use core::{
     alloc::Layout,
-    cell::UnsafeCell,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -9,6 +8,8 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
+use core::cell::RefCell;
+use core::sync::atomic::AtomicUsize;
 use arceos_posix_api::FD_TABLE;
 use axerrno::{AxError, AxResult};
 use axfs::{CURRENT_DIR, CURRENT_DIR_PATH};
@@ -20,9 +21,13 @@ use axmm::{AddrSpace, kernel_aspace};
 use axns::{AxNamespace, AxNamespaceIf};
 use axsync::Mutex;
 use axtask::{AxTaskRef, TaskExtRef, TaskInner, current};
+use axsignal::{
+    PendingSignals,
+    ctypes::{SignalAction, SignalSet},
+};
+use axsync::spin::SpinNoIrq;
 use memory_addr::VirtAddrRange;
-use spin::Once;
-
+use spin::{Once, RwLock};
 use crate::{
     ctypes::{CloneFlags, TimeStat, WaitStatus},
     mm::copy_from_kernel,
@@ -36,12 +41,6 @@ pub struct TaskExt {
     pub parent_id: AtomicU64,
     /// children process
     pub children: Mutex<Vec<AxTaskRef>>,
-    /// The clear thread tid field
-    ///
-    /// See <https://manpages.debian.org/unstable/manpages-dev/set_tid_address.2.en.html#clear_child_tid>
-    ///
-    /// When the thread exits, the kernel clears the word at this address if it is not NULL.
-    clear_child_tid: AtomicU64,
     /// The user space context.
     pub uctx: UspaceContext,
     /// The virtual memory address space.
@@ -49,11 +48,69 @@ pub struct TaskExt {
     /// The resource namespace
     pub ns: AxNamespace,
     /// The time statistics
-    pub time: UnsafeCell<TimeStat>,
+    pub time: RefCell<TimeStat>,
+    /// The thread info
+    pub thread: Arc<ThreadInfo>,
+    /// The signal info
+    pub signal: Arc<SignalInfo>,
     /// The user heap bottom
-    pub heap_bottom: AtomicU64,
+    heap_bottom: AtomicU64,
     /// The user heap top
-    pub heap_top: AtomicU64,
+    heap_top: AtomicU64,
+}
+
+#[derive(Debug)]
+pub struct ThreadInfo {
+    /// The clear thread tid field
+    ///
+    /// See <https://manpages.debian.org/unstable/manpages-dev/set_tid_address.2.en.html#clear_child_tid>
+    ///
+    /// When the thread exits, the kernel clears the word at this address if it is not NULL.
+    clear_child_tid: AtomicUsize,
+}
+
+impl Default for ThreadInfo {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ThreadInfo {
+    pub fn new() -> Self {
+        Self {
+            clear_child_tid: AtomicUsize::new(0),
+        }
+    }
+
+    pub fn clear_child_tid(&self) -> usize {
+        self.clear_child_tid.load(Ordering::Relaxed)
+    }
+
+    pub fn set_clear_child_tid(&self, clear_child_tid: usize) {
+        self.clear_child_tid
+            .store(clear_child_tid, Ordering::Relaxed);
+    }
+}
+
+pub struct SignalInfo {
+    /// signal blocked
+    pub sig_blocked: SignalSet,
+    /// sigmask saved, for restore
+    pub saved_sigmask: SignalSet,
+    /// sig_pending
+    pub sig_pending: SpinNoIrq<PendingSignals>,
+    /// signal_action
+    pub sig_actions: Mutex<[SignalAction; 32]>,
+}
+impl Default for SignalInfo {
+    fn default() -> Self {
+        Self {
+            sig_blocked: SignalSet::default(),
+            saved_sigmask: SignalSet::default(),
+            sig_pending: SpinNoIrq::new(PendingSignals::new()),
+            sig_actions: Mutex::default(),
+        }
+    }
 }
 
 impl TaskExt {
@@ -68,12 +125,13 @@ impl TaskExt {
             parent_id: AtomicU64::new(1),
             children: Mutex::new(Vec::new()),
             uctx,
-            clear_child_tid: AtomicU64::new(0),
             aspace,
             ns: AxNamespace::new_thread_local(),
-            time: TimeStat::new().into(),
+            time: RefCell::new(TimeStat::new()),
             heap_bottom: AtomicU64::new(heap_bottom),
             heap_top: AtomicU64::new(heap_bottom),
+            signal: Arc::new(SignalInfo::default()),
+            thread: Arc::new(ThreadInfo::new()),
         }
     }
 
@@ -142,16 +200,6 @@ impl TaskExt {
         Ok(return_id)
     }
 
-    pub fn clear_child_tid(&self) -> u64 {
-        self.clear_child_tid
-            .load(core::sync::atomic::Ordering::Relaxed)
-    }
-
-    pub fn set_clear_child_tid(&self, clear_child_tid: u64) {
-        self.clear_child_tid
-            .store(clear_child_tid, core::sync::atomic::Ordering::Relaxed);
-    }
-
     pub fn get_parent(&self) -> u64 {
         self.parent_id.load(Ordering::Acquire)
     }
@@ -173,22 +221,23 @@ impl TaskExt {
     }
 
     pub(crate) fn time_stat_from_kernel_to_user(&self, current_tick: usize) {
-        let time = self.time.get();
-        unsafe {
-            (*time).switch_into_user_mode(current_tick);
-        }
+        self.time.borrow_mut().switch_into_user_mode(current_tick);
     }
 
     pub(crate) fn time_stat_from_user_to_kernel(&self, current_tick: usize) {
-        let time = self.time.get();
-        unsafe {
-            (*time).switch_into_kernel_mode(current_tick);
-        }
+        self.time.borrow_mut().switch_into_kernel_mode(current_tick);
     }
 
     pub(crate) fn time_stat_output(&self) -> (usize, usize) {
-        let time = self.time.get();
-        unsafe { (*time).output() }
+        self.time.borrow_mut().output()
+    }
+
+    pub fn get_thread(&self) -> &ThreadInfo {
+        self.thread.as_ref()
+    }
+    
+    pub fn get_signal(&self) -> &SignalInfo {
+        self.signal.as_ref()
     }
 
     pub fn get_heap_bottom(&self) -> u64 {

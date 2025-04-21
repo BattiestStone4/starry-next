@@ -196,6 +196,11 @@ pub fn sys_getdents64(fd: i32, buf: UserPtr<c_void>, len: usize) -> LinuxResult<
                     break;
                 }
 
+                // FIXME: hack
+                if axtask::current().name() == "busybox" {
+                    return 0;
+                }
+
                 total_size += entry_size;
             }
 
